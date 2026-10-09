@@ -1,0 +1,429 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+// Live clouds, drawn by a WebGL fragment shader: they drift, billow and keep changing shape,
+// are lit from the top-left, and (low layer) cast a soft shadow on the map. Each layer is a canvas
+// inside the map's 3D layer, so it tilts, zooms and pans with the map; `z` (px, scaled with the
+// map layer) is its height above the map: zooming brings the camera closer, so tall layers grow
+// faster than the map (parallax), as if the camera were flying into them.
+// `extent` makes the canvas that many times larger than the map, so there is always cloud behind the
+// visible area even when the height shifts the layer against the map.
+// Units: `scale` = cloud features per map height; `speed` = features per second of drift.
+interface Layer {
+  z: number;
+  extent: number;
+  res: readonly [number, number];
+  scale: number;
+  stretch: number;
+  speed: number;
+  cover: number;
+  bank: number;
+  opacity: number;
+  shadow: number;
+}
+
+export const LAYERS = {
+  low: {
+    z: 50,
+    extent: 1.8,
+    res: [896, 504],
+    scale: 2.4,
+    stretch: 1,
+    speed: 0.066,
+    cover: 0.5,
+    bank: 0.35,
+    opacity: 0.72,
+    shadow: 0.32,
+  },
+  high: {
+    z: 300,
+    extent: 1.8,
+    res: [896, 504],
+    scale: 3.6,
+    stretch: 0.5,
+    speed: 0.09,
+    cover: 0.52,
+    bank: 0.4,
+    opacity: 0.55,
+    shadow: 0,
+  },
+  // Sparse wisps flying highest: they slide fastest when panning, for a sense of altitude.
+  wisps: {
+    z: 240,
+    extent: 1.8,
+    res: [768, 432],
+    scale: 1.4,
+    stretch: 0.7,
+    speed: 0.12,
+    cover: 0.6,
+    bank: 0.3,
+    opacity: 0.35,
+    shadow: 0,
+  },
+  // The intro sky (intro.tsx): dense banks covering the whole screen, far to near.
+  introFar: {
+    z: 0,
+    extent: 1,
+    res: [960, 540],
+    scale: 1.6,
+    stretch: 1,
+    speed: 0.03,
+    cover: 0.42,
+    bank: 0.3,
+    opacity: 0.75,
+    shadow: 0,
+  },
+  introMid: {
+    z: 0,
+    extent: 1,
+    res: [960, 540],
+    scale: 2.4,
+    stretch: 1,
+    speed: 0.04,
+    cover: 0.47,
+    bank: 0.35,
+    opacity: 0.7,
+    shadow: 0,
+  },
+  introNear: {
+    z: 0,
+    extent: 1,
+    res: [960, 540],
+    scale: 1.2,
+    stretch: 1,
+    speed: 0.05,
+    cover: 0.53,
+    bank: 0.3,
+    opacity: 0.6,
+    shadow: 0,
+  },
+  // The day/night change (theme-sweep.tsx): a dense bank that rolls across the screen.
+  sweep: {
+    z: 0,
+    extent: 1,
+    res: [1152, 432],
+    scale: 1.5,
+    stretch: 0.8,
+    speed: 0.06,
+    cover: 0.3,
+    bank: 0.25,
+    opacity: 0.95,
+    shadow: 0,
+  },
+} satisfies Record<string, Layer>;
+
+const ASPECT = 1679 / 937;
+const FRAME_MS = 1000 / 30;
+
+const VERTEX = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main() {
+  vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5); // (0,0) = top-left of the map
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+const FRAGMENT = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 vUv;
+uniform float uTime, uScale, uStretch, uSpeed, uCover, uBank, uOpacity, uShadow, uAspect, uSeed, uExtent;
+
+float hash(vec3 p) {
+  return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+}
+
+float noise(vec3 x) {
+  vec3 i = floor(x);
+  vec3 f = fract(x);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x),
+        mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x),
+        mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y),
+    f.z);
+}
+
+// Fractal noise; finer octaves are carried a little faster by the wind, so the cloud boils as it moves.
+float fbm(vec3 p, float wind, int octaves) {
+  float sum = 0.0;
+  float amp = 0.5;
+  for (int i = 0; i < 5; i++) {
+    if (i >= octaves) break;
+    sum += amp * noise(vec3(p.x - wind * 0.12 * float(i), p.yz));
+    p = vec3(p.xy * 2.03 + vec2(17.0, 5.0), p.z * 1.7 + 3.0);
+    amp *= 0.5;
+  }
+  return sum;
+}
+
+void main() {
+  float t = uTime;
+  float wind = t * uSpeed;
+  vec2 uv = (vUv - 0.5) * uExtent + 0.5; // canvases larger than the map keep their features on-map size
+  vec2 p = vec2(uv.x * uAspect * uStretch, uv.y) * uScale + uSeed;
+  vec2 q = p - vec2(wind, 0.0);
+
+  // Domain warp: irregular, billowy edges.
+  vec2 w = vec2(
+    fbm(vec3(q * 0.8 + vec2(3.1, 1.7), t * 0.05), 0.0, 3),
+    fbm(vec3(q * 0.8 + vec2(7.7, 9.2), t * 0.05 + 5.0), 0.0, 3));
+  vec2 qw = q + (w - 0.5) * 1.5;
+
+  // Slow, large-scale "weather" groups the clouds into banks with clear gaps between them.
+  vec2 uvA = vec2(uv.x * uAspect, uv.y);
+  float bank = fbm(vec3(uvA * 1.1 + uSeed * 0.37 - vec2(wind / uScale * 0.35, 0.0), t * 0.02), 0.0, 3);
+  float bankTerm = (bank - 0.5) * uBank;
+
+  float tt = t * 0.06;
+  float d = fbm(vec3(qw, tt), wind, 5) + bankTerm;
+  float dens = smoothstep(uCover, uCover + 0.17, d);
+
+  // Lighting from the top-left: if there is more cloud toward the light we are in shade.
+  float dl = fbm(vec3(qw + vec2(-0.16, -0.22), tt), wind, 5) + bankTerm;
+  float densL = smoothstep(uCover, uCover + 0.17, dl);
+  float thick = smoothstep(uCover + 0.08, uCover + 0.5, d);
+  float rim = clamp((dens - densL) * 2.0, 0.0, 1.0) * (1.0 - thick);
+  float lit = clamp(0.74 - (densL - dens) * 2.8 - thick * 0.3 + rim * 0.35, 0.0, 1.0);
+  vec3 col = mix(vec3(0.5, 0.45, 0.4), vec3(1.0, 0.99, 0.96), lit);
+
+  // Thin, translucent edges; denser cores.
+  float alpha = dens * uOpacity * (0.5 + 0.5 * smoothstep(uCover + 0.03, uCover + 0.28, d));
+  vec4 cloud = vec4(col * alpha, alpha);
+
+  // Cast shadow on the map, offset down-right, drawn under the cloud.
+  vec4 shade = vec4(0.0);
+  if (uShadow > 0.0) {
+    float ds = fbm(vec3(qw + vec2(0.13, 0.2), tt), wind, 5) + bankTerm;
+    float sa = smoothstep(uCover, uCover + 0.22, ds) * uShadow;
+    shade = vec4(vec3(0.23, 0.17, 0.1) * sa, sa);
+  }
+  gl_FragColor = cloud + shade * (1.0 - alpha);
+}`;
+
+function compile(gl: WebGLRenderingContext, type: number, source: string) {
+  const shader = gl.createShader(type);
+  if (!shader) return null;
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.warn("Cloud shader:", gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+// Where the clouds part during a kingdom click (map pixels); `open` animates the hole open or closed.
+export interface CloudPart {
+  x: number;
+  y: number;
+  open: boolean;
+}
+
+// A soft hole in a cloud layer around the parted point, positioned in that canvas's own (larger) frame.
+const partMask = (part: CloudPart | null | undefined, extent: number): React.CSSProperties => {
+  if (!part) return {};
+  const px = ((part.x / 1679 - 0.5) / extent + 0.5) * 100;
+  const py = ((part.y / 937 - 0.5) / extent + 0.5) * 100;
+  const mask = `radial-gradient(circle at ${px}% ${py}%, transparent var(--part), black calc(var(--part) * 1.9))`;
+  return {
+    maskImage: mask,
+    WebkitMaskImage: mask,
+    ["--part" as string]: part.open ? `${22 / extent}%` : "0%",
+    transition: "--part 1200ms cubic-bezier(0.45, 0, 0.25, 1)",
+  };
+};
+
+export function ShaderLayer({
+  layer,
+  seed,
+  onFail,
+  part,
+  className = "",
+}: {
+  layer: Layer;
+  seed: number;
+  onFail: () => void;
+  part?: CloudPart | null;
+  className?: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false });
+    const vs = gl && compile(gl, gl.VERTEX_SHADER, VERTEX);
+    const fs = gl && compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
+    const program = gl?.createProgram();
+    if (!gl || !vs || !fs || !program) {
+      onFail();
+      return;
+    }
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      onFail();
+      return;
+    }
+    gl.useProgram(program);
+
+    // One triangle that covers the whole canvas.
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(program, "aPos");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const uniform = (name: string, value: number) => gl.uniform1f(gl.getUniformLocation(program, name), value);
+    uniform("uScale", layer.scale);
+    uniform("uStretch", layer.stretch);
+    uniform("uSpeed", layer.speed);
+    uniform("uCover", layer.cover);
+    uniform("uBank", layer.bank);
+    uniform("uOpacity", layer.opacity);
+    uniform("uShadow", layer.shadow);
+    uniform("uAspect", ASPECT);
+    uniform("uExtent", layer.extent);
+    uniform("uSeed", seed);
+    const uTime = gl.getUniformLocation(program, "uTime");
+
+    gl.viewport(0, 0, layer.res[0], layer.res[1]);
+    gl.clearColor(0, 0, 0, 0);
+
+    // Start somewhere different each visit so the sky isn't always the same.
+    const start = Math.random() * 200;
+    const t0 = performance.now();
+    const draw = (now: number) => {
+      gl.uniform1f(uTime, start + (now - t0) / 1000);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      onFail();
+    };
+    canvas.addEventListener("webglcontextlost", onLost);
+
+    let raf = 0;
+    let last = 0;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      draw(t0); // one still frame
+    } else {
+      const loop = (now: number) => {
+        raf = requestAnimationFrame(loop);
+        if (now - last < FRAME_MS) return;
+        last = now;
+        draw(now);
+      };
+      raf = requestAnimationFrame(loop);
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      canvas.removeEventListener("webglcontextlost", onLost);
+      gl.deleteBuffer(buffer);
+      gl.deleteProgram(program);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+    };
+  }, [layer, seed, onFail]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={layer.res[0]}
+      height={layer.res[1]}
+      aria-hidden="true"
+      className={`pointer-events-none absolute ${className}`}
+      style={{
+        left: `${-(layer.extent - 1) * 50}%`,
+        top: `${-(layer.extent - 1) * 50}%`,
+        width: `${layer.extent * 100}%`,
+        height: `${layer.extent * 100}%`,
+        transform: layer.z ? `translateZ(${layer.z}px)` : undefined,
+        ...partMask(part, layer.extent),
+      }}
+    />
+  );
+}
+
+// Fallback when WebGL isn't available: pre-made textures sliding on a CSS loop (see globals.css).
+const TEXTURES = {
+  shadow: { src: "/clouds/cloud-shadow.webp", opacity: 0.22, z: 2, drift: 220, offset: "1.2%, 2%" },
+  low: { src: "/clouds/cloud-low.webp", opacity: 0.55, z: 30, drift: 220 },
+  high: { src: "/clouds/cloud-high.webp", opacity: 0.4, z: 90, drift: 140, sway: 90 },
+} as const;
+
+// One drifting texture layer. The strip is two tiles wide and slides by half its width, looping seamlessly.
+function TextureLayer({
+  src,
+  opacity,
+  z,
+  drift,
+  sway,
+  offset,
+}: {
+  src: string;
+  opacity: number;
+  z: number;
+  drift: number;
+  sway?: number;
+  offset?: string;
+}) {
+  return (
+    <div
+      className="map-cloud pointer-events-none absolute inset-0 overflow-hidden"
+      style={{ opacity, transform: `translateZ(${z}px)${offset ? ` translate(${offset})` : ""}` }}
+      aria-hidden="true"
+    >
+      <div
+        className={`absolute -inset-y-[3%] inset-x-0 ${sway ? "cloud-anim" : ""}`}
+        style={sway ? { animation: `cloud-sway ${sway}s ease-in-out infinite` } : undefined}
+      >
+        <div
+          className="cloud-anim absolute inset-y-0 left-0 w-[200%]"
+          style={{
+            backgroundImage: `url(${src})`,
+            backgroundSize: "50% 100%",
+            backgroundRepeat: "repeat-x",
+            animation: `cloud-drift ${drift}s linear infinite`,
+            willChange: "transform",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default function Clouds({ part = null }: { part?: CloudPart | null }) {
+  const [fallback, setFallback] = useState(false);
+  const fail = useCallback(() => setFallback(true), []);
+
+  if (fallback) {
+    return (
+      <>
+        <TextureLayer {...TEXTURES.shadow} />
+        <TextureLayer {...TEXTURES.low} />
+        <TextureLayer {...TEXTURES.high} />
+      </>
+    );
+  }
+  return (
+    <>
+      {/* map-cloud: dimmed at night (globals.css) */}
+      <ShaderLayer layer={LAYERS.low} seed={11.3} onFail={fail} part={part} className="map-cloud" />
+      <ShaderLayer layer={LAYERS.high} seed={47.9} onFail={fail} part={part} className="map-cloud" />
+      <ShaderLayer layer={LAYERS.wisps} seed={83.1} onFail={fail} part={part} className="map-cloud" />
+    </>
+  );
+}

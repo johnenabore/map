@@ -1,26 +1,379 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-cinzel);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+/* Drifting clouds over the map (see Clouds in map-viewer.tsx). The strip is two tiles wide,
+   so sliding it by half its width loops seamlessly. */
+@keyframes cloud-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@keyframes cloud-sway {
+  0%,
+  100% {
+    transform: translateY(-1.5%);
+  }
+  50% {
+    transform: translateY(1.5%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-anim {
+    animation: none !important;
+  }
+}
+
+/* Camera values shared with the floating region labels, registered so they can transition with the map. */
+@property --tilt {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+@property --rot {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+/* The hovered kingdom's glow breathes gently (see kingdoms.tsx). */
+@keyframes kingdom-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.84;
+  }
+}
+
+/* Slow pan/zoom of the discovery drawer's picture (kingdom-drawer.tsx). */
+@keyframes slow-drift {
+  from {
+    transform: scale(1.04) translate(0, 0);
+  }
+  to {
+    transform: scale(1.12) translate(-1.5%, -1%);
+  }
+}
+
+/* Clouds part around a kingdom during the click flight (clouds.tsx). */
+@property --part {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="slow-drift"] {
+    animation: none !important;
+  }
+}
+
+/* The page title fades out during the flight and on the books page (map-viewer.tsx sets data-overlay). */
+.site-title {
+  transition: opacity 500ms ease;
+}
+
+body[data-overlay] .site-title {
+  opacity: 0;
+}
+
+/* Theme. Day is parchment; night is dark parchment with pale ink. map-viewer.tsx sets data-theme="night" on
+   <html>. --ui-*: navbar, search, compass fan. --hint-*: the hints card. --map-*: title, level control, trail and the
+   area around the map. --label-*: region names on the map. --paper-*: the drawers and the books page. */
+:root {
+  --ui-paper: #d9d3c6;
+  --ui-ink: #2b2620;
+  --hint-light: #e4cc9f;
+  --hint-paper: #d8bd8c;
+  --hint-edge: #a8834f;
+  --hint-rim: #6b4a26;
+  --hint-red: #a8323a;
+  --map-ink: #3a2a1a;
+  --map-glow: rgba(244, 228, 196, 0.95);
+  --map-bg: #d6be96;
+  --label-ink: #2a1e12;
+  --label-shadow: rgba(40, 28, 16, 0.3);
+  --label-halo: 0 0 0.1em rgba(244, 232, 205, 0.95), 0 0 0.22em rgba(244, 232, 205, 0.7);
+  --label-halo-on: 0 0 0.1em rgba(255, 240, 205, 1), 0 0 0.35em rgba(255, 207, 115, 0.95),
+    0 0 0.8em rgba(255, 190, 90, 0.6);
+  --paper: #dbd5c8;
+  --paper-ink: #2b2620;
+  --paper-edge: #d2cabc;
+  --paper-rim: #e2dccf;
+  --paper-rule: #a9a294;
+  --paper-quote: #3a342c;
+  --paper-frame: #c9c2b3;
+  --paper-frame-inner: #efebe2;
+}
+
+:root[data-theme="night"] {
+  --ui-paper: #2a241c;
+  --ui-ink: #e6dcc8;
+  --hint-light: #3a3226;
+  --hint-paper: #2e271e;
+  --hint-edge: #1c1812;
+  --hint-rim: #0e0c09;
+  --hint-red: #e0685f;
+  --map-ink: #efe4cc;
+  --map-glow: rgba(16, 12, 8, 0.9);
+  --map-bg: #625d57;
+  --label-ink: #f1e6cf;
+  --label-shadow: rgba(0, 0, 0, 0.45);
+  --label-halo: 0 0 0.1em rgba(18, 14, 10, 0.95), 0 0 0.25em rgba(18, 14, 10, 0.6);
+  --label-halo-on: 0 0 0.1em rgba(18, 14, 10, 1), 0 0 0.35em rgba(255, 190, 90, 0.75),
+    0 0 0.8em rgba(255, 170, 70, 0.5);
+  --paper: #2a241c;
+  --paper-ink: #e6dcc8;
+  --paper-edge: #29231b;
+  --paper-rim: #3b3329;
+  --paper-rule: #6f665a;
+  --paper-quote: #d6cbb6;
+  --paper-frame: #4a4236;
+  --paper-frame-inner: #5c5245;
+}
+
+/* Title and level control: ink with a halo, both following the theme. */
+.site-title {
+  color: var(--map-ink);
+  filter: drop-shadow(0 0 6px var(--map-glow));
+}
+
+/* Location markers breathe gently (region-labels.tsx). */
+@keyframes marker-breathe {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*="marker-breathe"] {
+    animation: none !important;
+  }
+}
+
+/* Sea life and birds (sea-life.tsx, birds.tsx). --u is one map pixel in layer px. */
+@keyframes serpent-swim {
+  0% {
+    transform: translate(calc(var(--u) * -4), calc(var(--u) * 1.2)) rotate(-1.5deg);
+  }
+  50% {
+    transform: translate(calc(var(--u) * 1), calc(var(--u) * -1.5)) rotate(0.8deg);
+  }
+  100% {
+    transform: translate(calc(var(--u) * 5), calc(var(--u) * 0.8)) rotate(2deg);
+  }
+}
+
+@keyframes ship-rock {
+  from {
+    transform: translateY(calc(var(--u) * 0.8)) rotate(-4deg);
+  }
+  to {
+    transform: translateY(calc(var(--u) * -0.8)) rotate(4deg);
+  }
+}
+
+@keyframes bird-flap {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(-0.55);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sea-anim,
+  [style*="bird-flap"] {
+    animation: none !important;
+  }
+}
+
+/* Castle window lights at night (castle-lights.tsx): a candle-like flicker of the glow. */
+@keyframes window-flicker {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  35% {
+    opacity: 0.72;
+    transform: scale(0.92);
+  }
+  55% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .castle-flicker {
+    animation: none !important;
+  }
+}
+
+/* The journey trail (journey.tsx): the newest leg's mask path draws from start to end. */
+@keyframes trail-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trail-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+}
+
+/* Night: the map's clouds turn to moonlit grey instead of bright white (clouds.tsx). */
+.map-cloud {
+  transition: filter 900ms ease;
+}
+:root[data-theme="night"] .map-cloud {
+  filter: brightness(0.42) saturate(0.6);
 }

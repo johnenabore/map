@@ -1,0 +1,234 @@
+import { KINGDOMS } from "./kingdom-data";
+
+// Region names on the map, in the style of the reference: capitals printed in dark ink, no outline.
+// They live inside the map's 3D layer, a few px above the map, so they tilt, zoom and pan with it.
+// Positions are in map pixels (the map image is 1679x937); `size` is the font size as a % of the map width.
+const MAP_W = 1679;
+const MAP_H = 937;
+
+// Where the kingdom's location marker sits (map px).
+interface Dot {
+  x: number;
+  y: number;
+}
+
+interface Label {
+  name: string;
+  x: number;
+  y: number;
+  size: number;
+  rot: number;
+  dot: Dot;
+}
+
+const LABELS: Label[] = [
+  { name: "Pref", x: 407, y: 128, size: 2.1, rot: -9, dot: { x: 407, y: 176 } },
+  { name: "Kaynvu", x: 821, y: 249, size: 2.8, rot: 3, dot: { x: 761, y: 311 } },
+  { name: "Oshta", x: 1257, y: 193, size: 2.8, rot: 8, dot: { x: 1257, y: 256 } },
+  { name: "Galmoleth", x: 302, y: 459, size: 1.6, rot: 3, dot: { x: 302, y: 495 } },
+  { name: "Rach", x: 462, y: 632, size: 2.6, rot: 10, dot: { x: 453, y: 686 } },
+  { name: "Fouuer", x: 816, y: 613, size: 1.6, rot: 0, dot: { x: 816, y: 651 } },
+  { name: "Clouz", x: 1180, y: 500, size: 2.6, rot: 36, dot: { x: 1162, y: 549 } },
+  { name: "Milthar", x: 1370, y: 492, size: 1.5, rot: 8, dot: { x: 1355, y: 534 } },
+  { name: "Osiris", x: 1509, y: 508, size: 1.7, rot: -35, dot: { x: 1525, y: 547 } },
+  { name: "Prazh", x: 1199, y: 705, size: 2.7, rot: 5, dot: { x: 1210, y: 764 } },
+];
+
+// Marker positions by kingdom id (the journey trail runs from marker to marker).
+export const MARKERS: Record<string, Dot> = Object.fromEntries(LABELS.map((l) => [l.name.toLowerCase(), l.dot]));
+
+const pct = (v: number, total: number) => `${(v / total) * 100}%`;
+
+// Floating label: lifted off the map by LIFT px and kept flat to the screen. The map layer's transform is
+// rotateX(tilt) rotateZ(rot) scale(zoom); undoing the tilt and turn (rotateZ(-rot), rotateX(-tilt)) stops the text
+// from tilting with the paper, and re-applying rot keeps it following the map's turn. The zoom is deliberately not
+// undone, so labels grow with the map and there is no separate size animation to fall out of step with it.
+// The map layer (map-viewer.tsx) keeps --tilt, --rot and --mw up to date.
+const LIFT = 70;
+const floating = (rot: number) =>
+  `translateZ(${LIFT}px) rotateZ(calc(var(--rot) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(var(--rot)) rotateZ(${rot}deg) translate(-50%, -50%)`;
+
+const SUBTITLES = Object.fromEntries(KINGDOMS.map((k) => [k.id, k.subtitle]));
+const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
+
+const em = (size: number) => `calc(var(--mw) * ${size / 100})`;
+
+const textStyle = (size: number): React.CSSProperties => ({
+  fontFamily: "var(--font-fell), var(--font-cinzel), serif",
+  fontSize: em(size),
+  lineHeight: 1,
+  textTransform: "uppercase",
+  letterSpacing: "0.1em",
+  paddingLeft: "0.1em", // balances the trailing letter-space so the word stays centred
+});
+
+// The hovered kingdom's label lifts a little, warms up, and shows its subtitle; the others dim slightly.
+export default function RegionLabels({ hovered = null }: { hovered?: string | null }) {
+  return (
+    <div className="pointer-events-none absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
+      {/* Location markers: their own elements, lifted just above the night veil (see map-viewer.tsx) */}
+      {LABELS.map(({ name, dot }, index) => {
+        const id = name.toLowerCase();
+        return (
+          <Marker
+            key={`marker-${name}`}
+            x={dot.x}
+            y={dot.y}
+            on={hovered === id}
+            dim={hovered !== null && hovered !== id}
+            index={index}
+          />
+        );
+      })}
+      {LABELS.map(({ name, x, y, size, rot }) => {
+        const id = name.toLowerCase();
+        const on = hovered === id;
+        const dim = hovered !== null && !on;
+        return (
+          // The wrapper renders its label flat, so it is lifted just above the night veil (2.5px) and the journey
+          // trail (3px); otherwise the veil would grey the names out at night. It covers the whole map so the
+          // label's % position still refers to the map.
+          <div
+            key={name}
+            className="absolute inset-0"
+            style={{ opacity: dim ? 0.75 : 1, transition: `opacity 600ms ${EASE}`, transform: "translateZ(3.5px)" }}
+          >
+            {/* Soft shadow on the paper, under where the label hovers */}
+            <span
+              className="absolute whitespace-nowrap"
+              aria-hidden="true"
+              style={{
+                ...textStyle(size),
+                left: pct(x, MAP_W),
+                top: pct(y, MAP_H),
+                transform: `translate(calc(-50% + 0.1em), calc(-50% + 0.3em)) rotate(${rot}deg)`,
+                color: "var(--label-shadow)",
+                filter: "blur(0.07em)",
+              }}
+            >
+              {name}
+            </span>
+            <span
+              className="absolute whitespace-nowrap"
+              style={{
+                ...textStyle(size),
+                left: pct(x, MAP_W),
+                top: pct(y, MAP_H),
+                transformOrigin: "0 0", // the label turns about its anchor point on the map
+                transform: floating(rot),
+                color: "var(--label-ink)", // the reference map's label ink by day, pale ink at night (globals.css)
+                WebkitTextStroke: "0.06em var(--label-ink)", // IM Fell is thin; this gives it the weight of printed ink
+                // A tight paper-coloured halo separates the ink from the drawings underneath; warm when hovered.
+                textShadow: on ? "var(--label-halo-on)" : "var(--label-halo)",
+                transition: `text-shadow 600ms ${EASE}, color 900ms ease`,
+              }}
+            >
+              <span
+                className="inline-block"
+                style={{
+                  transform: on ? "translateY(-0.15em) scale(1.08)" : "none",
+                  transition: `transform 600ms ${EASE}`,
+                }}
+              >
+                {name}
+              </span>
+              {/* Subtitle, fading in under the name */}
+              <span
+                className="absolute left-1/2 top-full whitespace-nowrap"
+                style={{
+                  fontSize: "0.42em",
+                  fontStyle: "italic",
+                  textTransform: "none",
+                  letterSpacing: "0.06em",
+                  WebkitTextStroke: "0.03em var(--label-ink)",
+                  marginTop: "0.35em",
+                  opacity: on ? 1 : 0,
+                  transform: `translate(-50%, ${on ? "0" : "-0.4em"})`,
+                  transition: `opacity 600ms ${EASE} ${on ? "120ms" : "0ms"}, transform 600ms ${EASE} ${on ? "120ms" : "0ms"}`,
+                }}
+              >
+                {SUBTITLES[id]}
+              </span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// A location marker like the reference: a white ring with a solid white centre and a soft glow of light around it.
+// The hovered (or selected) kingdom's marker blazes with a large glow; the others breathe gently.
+function Marker({ x, y, on, dim, index }: { x: number; y: number; on: boolean; dim: boolean; index: number }) {
+  // A crisp ink outline and a soft dark halo make the white pop on light parchment, as it does on the reference's
+  // dark map.
+  const outline = `0 0 0 calc(var(--mw) * 0.0006) rgba(36, 26, 14, 0.85)`;
+  const halo = `0 0 calc(var(--mw) * 0.004) calc(var(--mw) * 0.001) rgba(36, 26, 14, 0.45)`;
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute"
+      style={{
+        left: pct(x, MAP_W),
+        top: pct(y, MAP_H),
+        width: 0,
+        height: 0,
+        transform: "translateZ(4px)",
+        opacity: dim ? 0.7 : 1,
+        transition: `opacity 600ms ${EASE}`,
+      }}
+    >
+      {/* glow */}
+      <span
+        className="absolute rounded-full"
+        style={{
+          left: 0,
+          top: 0,
+          width: em(4.5),
+          height: em(4.5),
+          translate: "-50% -50%",
+          scale: on ? "1" : "0.62",
+          opacity: on ? 1 : 0.85,
+          transition: `scale 500ms ${EASE}, opacity 500ms ${EASE}`,
+        }}
+      >
+        <span
+          className="block h-full w-full rounded-full"
+          style={{
+            animation: on ? undefined : `marker-breathe 3.2s ease-in-out ${-index * 0.37}s infinite`,
+            background:
+              "radial-gradient(circle, rgba(255, 252, 240, 0.95) 0%, rgba(255, 248, 228, 0.55) 28%, rgba(255, 244, 220, 0) 68%)",
+          }}
+        />
+      </span>
+      {/* ring */}
+      <span
+        className="absolute rounded-full"
+        style={{
+          left: 0,
+          top: 0,
+          width: em(0.85),
+          height: em(0.85),
+          translate: "-50% -50%",
+          border: `calc(var(--mw) * 0.0019) solid #fffdf6`,
+          boxShadow: `${outline}, inset ${outline}, ${halo}, 0 0 calc(var(--mw) * 0.006) rgba(255, 250, 235, 0.95)`,
+          scale: on ? "1.15" : "1",
+          transition: `scale 500ms ${EASE}`,
+        }}
+      />
+      {/* centre */}
+      <span
+        className="absolute rounded-full"
+        style={{
+          left: 0,
+          top: 0,
+          width: em(0.32),
+          height: em(0.32),
+          translate: "-50% -50%",
+          background: "#fffdf6",
+          boxShadow: `${outline}, 0 0 calc(var(--mw) * 0.003) rgba(255, 252, 240, 1)`,
+        }}
+      />
+    </span>
+  );
+}
