@@ -1,8 +1,5 @@
 import { KINGDOMS } from "./kingdom-data";
 
-// Region names on the map, in the style of the reference: capitals printed in dark ink, no outline.
-// They live inside the map's 3D layer, a few px above the map, so they tilt, zoom and pan with it.
-// Positions are in map pixels (the map image is 1679x937); `size` is the font size as a % of the map width.
 const MAP_W = 1679;
 const MAP_H = 937;
 
@@ -80,19 +77,13 @@ export default function RegionLabels({ hovered = null }: { hovered?: string | nu
           />
         );
       })}
-      {LABELS.map(({ name, x, y, size, rot }) => {
-        const id = name.toLowerCase();
-        const on = hovered === id;
-        const dim = hovered !== null && !on;
-        return (
-          // The wrapper renders its label flat, so it is lifted just above the night veil (2.5px) and the journey
-          // trail (3px); otherwise the veil would grey the names out at night. It covers the whole map so the
-          // label's % position still refers to the map.
-          <div
-            key={name}
-            className="absolute inset-0"
-            style={{ opacity: dim ? 0.75 : 1, transition: `opacity 600ms ${EASE}`, transform: "translateZ(3.5px)" }}
-          >
+      <div className="absolute inset-0" style={{ transform: "translateZ(3.5px)" }}>
+        {LABELS.map(({ name, x, y, size, rot }) => {
+          const id = name.toLowerCase();
+          const on = hovered === id;
+          const dim = hovered !== null && !on;
+          return (
+            <div key={name} style={{ opacity: dim ? 0.75 : 1, transition: `opacity 600ms ${EASE}` }}>
             {/* Soft shadow on the paper, under where the label hovers */}
             <span
               className="absolute whitespace-nowrap"
@@ -150,18 +141,15 @@ export default function RegionLabels({ hovered = null }: { hovered?: string | nu
                 {SUBTITLES[id]}
               </span>
             </span>
-          </div>
-        );
-      })}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-// A location marker like the reference: a white ring with a solid white centre and a soft glow of light around it.
-// The hovered (or selected) kingdom's marker blazes with a large glow; the others breathe gently.
 function Marker({ x, y, on, dim, index }: { x: number; y: number; on: boolean; dim: boolean; index: number }) {
-  // A crisp ink outline and a soft dark halo make the white pop on light parchment, as it does on the reference's
-  // dark map.
   const outline = `0 0 0 calc(var(--mw) * 0.0006) rgba(36, 26, 14, 0.85)`;
   const halo = `0 0 calc(var(--mw) * 0.004) calc(var(--mw) * 0.001) rgba(36, 26, 14, 0.45)`;
   return (

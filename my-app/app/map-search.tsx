@@ -4,9 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { KINGDOMS } from "./kingdom-data";
 import { GRAIN } from "./parchment";
 
-// Search the map: a small parchment panel above the right end of the navbar (clear of the compass stamp) (opened from its magnifier cell or the
-// / key). Type a kingdom's name (or part of its title) and pick a result: the camera flies there (map-viewer.tsx).
-// Arrow keys move through the results, Enter picks, Esc or a click elsewhere closes.
 const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
 const plain = (s: string) =>
   s

@@ -3,9 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LAYERS, ShaderLayer } from "./clouds";
 
-// The day/night change: two cloud banks roll across the screen from left to right; while they cover the map the
-// light changes underneath (`onMidpoint`), and the map comes out of the clouds at dusk or dawn. Mounted only while it
-// plays, above the map and under the navbar. The clouds are dusky going into night and bright going into day.
 export const SWEEP_MS = 2600;
 const MIDPOINT = 0.46; // share of the sweep when the clouds cover the most of the screen
 const EASE = "cubic-bezier(0.45, 0, 0.55, 1)";

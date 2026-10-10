@@ -1,12 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { onGpuFrame } from "./gpu-ticker";
 
-// A living sea, drawn by a WebGL shader over the map's water: a cool, slightly darker tint, slow wave ripples and
-// a soft glow / foam line along the coasts so the islands stand out. Muted, so the map stays an old sepia chart.
-// The shader reads /sea/sea-mask.png, baked from the map art: R = sea (soft edge), G = distance to the coast
-// (0 at the coast, 1 at ~70 map px out), B = a slow blob field that varies the tint. Like the clouds, the canvas
-// sits in the map's 3D layer (just above the paper), so it tilts, zooms and pans with the map.
 const LOOK = {
   tint: [0.27, 0.36, 0.43], // cool blue-grey
   tintAmount: 0.24,
@@ -23,7 +19,6 @@ const LOOK = {
 const SEA_Z = 2;
 const RES_X = 1120;
 const RES_Y = 630;
-const FRAME_MS = 1000 / 24;
 const ASPECT = 1679 / 937;
 const MASK_URL = "/sea/sea-mask.png";
 
@@ -129,7 +124,7 @@ export default function Sea() {
     const texture = gl.createTexture();
     const loc = (name: string) => gl.getUniformLocation(program, name);
     let disposed = false;
-    let raf = 0;
+    let stop = () => {};
     const image = new Image();
     image.onload = () => {
       if (disposed) return;
@@ -171,20 +166,14 @@ export default function Sea() {
         draw(t0); // one still frame
         return;
       }
-      let last = 0;
-      const loop = (now: number) => {
-        raf = requestAnimationFrame(loop);
-        if (now - last < FRAME_MS) return;
-        last = now;
-        draw(now);
-      };
-      raf = requestAnimationFrame(loop);
+      // 20fps (the swell is slow), taking turns with the clouds (gpu-ticker.ts).
+      stop = onGpuFrame(3, draw);
     };
     image.src = MASK_URL;
 
     return () => {
       disposed = true;
-      cancelAnimationFrame(raf);
+      stop();
       gl.deleteTexture(texture);
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);

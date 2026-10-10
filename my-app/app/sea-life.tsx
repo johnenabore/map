@@ -1,8 +1,5 @@
 import { SEA_LIFE } from "./sealife-data";
 
-// The sea serpents and boats drawn on the map, brought to life: each is cut out of the art as an ink sprite and
-// gently animated (serpents swim and bob, boats rock on the waves), with a paper patch hiding the original drawing
-// underneath. They live in the map's 3D layer, so they tilt, zoom and pan with it; they never take the pointer.
 const MAP_W = 1679;
 const MAP_H = 937;
 

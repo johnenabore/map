@@ -21,7 +21,7 @@ import ThemeSweep, { SWEEP_MS } from "./theme-sweep";
 import { useMusic } from "./use-music";
 import Sea from "./sea";
 import SeaLife from "./sea-life";
-import Terrain from "./terrain";
+import Terrain, { type CameraMove } from "./terrain";
 import map from "../public/new-map.png";
 
 type Level = 1 | 2 | 3;
@@ -152,10 +152,9 @@ export default function MapViewer() {
   const pingTimer = useRef(0);
   // Background music: starts with the Explore click (browsers need a user gesture), muted from the navbar.
   const music = useMusic();
+  // The camera values last written to the page (see render), so unchanged ones are not written again.
+  const written = useRef<Record<string, string>>({});
 
-  // Clamp the pan offset for the current level, then write the transform.
-  // With `soft` (while dragging) the map may be pulled a little past its limit; it springs back on release.
-  // `animate`: false = immediate, true = level change, "hover" = the slower hover ease, "fly" = click flight.
   const render = useCallback((x: number, y: number, animate: boolean | "hover" | "fly" | "dive", soft = false) => {
     const layer = layerRef.current;
     if (!layer) return;
@@ -196,11 +195,24 @@ export default function MapViewer() {
       shownX = Math.min(maxX, Math.max(-maxX, f.x));
       shownY = Math.min(maxY, Math.max(-maxY, f.y));
     }
-    layer.style.width = `${baseW}px`;
-    layer.style.setProperty("--mw", `${baseW}px`);
-    layer.style.setProperty("--tilt", `${tilt}deg`);
-    layer.style.setProperty("--rot", `${rot}deg`);
-    layer.style.transition =
+    // Only write what changed: these variables are inherited by everything in the map, so each write makes the
+    // browser restyle it all. While dragging, only the transform below changes.
+    const css = written.current;
+    const put = (el: HTMLElement, name: string, value: string) => {
+      const key = name + (el === layer ? "" : "@nav");
+      if (css[key] === value) return;
+      css[key] = value;
+      if (name === "width") el.style.width = value;
+      else if (name === "transition") el.style.transition = value;
+      else el.style.setProperty(name, value);
+    };
+    put(layer, "width", `${baseW}px`);
+    put(layer, "--mw", `${baseW}px`);
+    put(layer, "--tilt", `${tilt}deg`);
+    put(layer, "--rot", `${rot}deg`);
+    put(
+      layer,
+      "transition",
       animate === "dive"
         ? DIVE_TRANSITION
         : animate === "fly"
@@ -209,24 +221,38 @@ export default function MapViewer() {
             ? HOVER_TRANSITION
             : animate
               ? TRANSITION
-              : "none";
-    // The navbar's ruler and compass follow the camera: a full map width of pan is 360°.
-    const root = document.documentElement.style;
-    root.setProperty(
-      "--map-ease",
-      animate === "dive"
-        ? DIVE_EASE
-        : animate === "fly"
-          ? FLY_EASE
-          : animate === "hover"
-            ? HOVER_EASE
-            : animate
-              ? EASE
-              : "0ms",
+              : "none",
     );
-    root.setProperty("--map-heading", `${(-shownX / baseW) * 360}`);
-    root.setProperty("--map-turn", `${rot}deg`);
-    layer.style.transform = `translate(-50%, -50%) rotateX(${tilt}deg) rotateZ(${rot}deg) scale(${scale}) translate(${shownX}px, ${shownY}px)`;
+    const nav = document.getElementById("map-navbar");
+    if (nav) {
+      put(
+        nav,
+        "--map-ease",
+        animate === "dive"
+          ? DIVE_EASE
+          : animate === "fly"
+            ? FLY_EASE
+            : animate === "hover"
+              ? HOVER_EASE
+              : animate
+                ? EASE
+                : "0ms",
+      );
+      put(nav, "--map-heading", `${((-shownX / baseW) * 360).toFixed(2)}`);
+      put(nav, "--map-turn", `${rot}deg`);
+    }
+    const pose = `rotateX(${tilt}deg) rotateZ(${rot}deg) scale(${scale}) translate(${shownX}px, ${shownY}px)`;
+    layer.style.transform = `translate(-50%, -50%) ${pose}`;
+    layer.dispatchEvent(
+      new CustomEvent<CameraMove>("camera", {
+        detail: {
+          ms: animate === "dive" ? DIVE_MS : animate === "fly" ? 1600 : animate === "hover" ? 1400 : animate ? 800 : 0,
+          pose,
+          width: baseW,
+          height: baseH,
+        },
+      }),
+    );
   }, []);
 
   // Hover a kingdom (or null): glow and label are driven by `hovered`; the camera eases in toward it.
@@ -258,9 +284,6 @@ export default function MapViewer() {
     [render],
   );
 
-  // Hover intent: a short pause before a kingdom lights up and a grace period before it lets go, so sweeping the
-  // cursor across the map, or slipping over a strait between a kingdom's islands, doesn't make the glow and the
-  // camera flicker on and off.
   const hoverTimer = useRef(0);
   const requestHover = useCallback(
     (id: string | null) => {

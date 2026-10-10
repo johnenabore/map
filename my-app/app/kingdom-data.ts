@@ -1,5 +1,3 @@
-// Generated from the map art (kingdom split, outlines and glow boxes are in map pixels; the map is 1679x937).
-// Edit names, subtitles and quotes freely; re-run the generator only if the outlines need to change.
 export interface Kingdom {
   id: string;
   name: string;

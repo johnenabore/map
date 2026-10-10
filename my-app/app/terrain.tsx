@@ -2,14 +2,6 @@
 
 import { type RefObject, useEffect, useRef } from "react";
 
-// The map as real 3D terrain: the artwork draped over a height map generated from its own ink
-// (/terrain/height.png), so mountains and forests rise when the map tilts while coasts and sea stay flat.
-//
-// It is drawn by three.js in a canvas behind the CSS map layer and copies that layer's live CSS 3D transform every
-// frame (including transitions in progress), with a projection that reproduces the viewer's CSS perspective. So
-// ground-level pixels land exactly where the flat map used to be, and every DOM layer on top (sea, glows, labels,
-// clouds, hit areas) stays aligned. Reports `onReady(false)` if WebGL or a texture is unavailable, so the flat map
-// can stay visible instead.
 const MAP_W = 1679;
 const MAP_H = 937;
 const PERSPECTIVE = 1200; // must match the viewer's CSS perspective
@@ -51,6 +43,13 @@ void main() {
   gl_FragColor = vec4(col, 1.0);
 }`;
 
+export interface CameraMove {
+  ms: number;
+  pose: string; // the layer transform after its translate(-50%, -50%)
+  width: number;
+  height: number;
+}
+
 export default function Terrain({
   layerRef,
   onReady,
@@ -71,7 +70,8 @@ export default function Terrain({
       try {
         const THREE = await import("three");
         if (disposed) return;
-        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        // No multisampling: it is costly on a full-screen canvas and the painted map has no hard edges to smooth.
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: "high-performance" });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setClearColor(0x000000, 0);
 
@@ -84,7 +84,8 @@ export default function Terrain({
           return;
         }
         // No colour-space conversion: the shader blends raw sRGB values, exactly like the flat map in the page.
-        map.anisotropy = relief.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        // 4x anisotropy keeps the tilted map crisp; higher costs a lot of texture reads for no visible gain.
+        map.anisotropy = relief.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 
         const geometry = new THREE.PlaneGeometry(MAP_W, MAP_H, 420, 234);
         const material = new THREE.ShaderMaterial({
@@ -114,15 +115,27 @@ export default function Terrain({
         const toMap = new THREE.Matrix4();
         let lastKey = "";
 
-        const frame = () => {
+        // The terrain only redraws while the camera moves. map-viewer.tsx fires a "camera" event on the layer each
+        // time it changes the view (with how long the move lasts); in between, no frames run at all, so nothing
+        // reads the page layout each frame.
+        let awakeUntil = performance.now() + 1000;
+        let direct: CameraMove | null = null; // the exact pose of an immediate move, when there is one
+        const frame = (now: number) => {
+          if (now > awakeUntil) {
+            raf = 0;
+            return;
+          }
           raf = requestAnimationFrame(frame);
           const layer = layerRef.current;
           if (!layer) return;
           const vw = canvas.clientWidth;
           const vh = canvas.clientHeight;
-          const lw = layer.offsetWidth;
-          const lh = layer.offsetHeight;
-          const transform = getComputedStyle(layer).transform;
+          // An immediate move hands over its pose; an eased one is read from the page as it animates.
+          const lw = direct ? direct.width : layer.offsetWidth;
+          const lh = direct ? direct.height : layer.offsetHeight;
+          const transform = direct
+            ? `translate(${-lw / 2}px, ${-lh / 2}px) ${direct.pose}`
+            : getComputedStyle(layer).transform;
           const key = `${transform}|${vw}|${vh}|${lw}|${lh}`;
           if (key === lastKey || !vw || !vh || !lw) return; // nothing moved: leave the GPU idle
           lastKey = key;
@@ -148,12 +161,24 @@ export default function Terrain({
           e.preventDefault();
           onReady(false);
         };
+        const wake = (e: Event) => {
+          const move = (e as CustomEvent<CameraMove | undefined>).detail;
+          const ms = move?.ms ?? 0;
+          direct = move && ms === 0 ? move : null;
+          awakeUntil = Math.max(awakeUntil, performance.now() + ms + 200);
+          if (!raf) raf = requestAnimationFrame(frame);
+        };
+        const layerEl = layerRef.current;
+        layerEl?.addEventListener("camera", wake);
+        window.addEventListener("resize", wake);
         canvas.addEventListener("webglcontextlost", onLost);
         raf = requestAnimationFrame(frame);
         onReady(true);
 
         cleanup = () => {
           cancelAnimationFrame(raf);
+          layerEl?.removeEventListener("camera", wake);
+          window.removeEventListener("resize", wake);
           canvas.removeEventListener("webglcontextlost", onLost);
           geometry.dispose();
           material.dispose();

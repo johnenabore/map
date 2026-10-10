@@ -2,10 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Now and then a small flock of ink-drawn birds crosses the map in a loose V, wings flapping, with a soft shadow
-// gliding over the land and sea below. The flock flies inside the map's 3D layer between the cloud layers, so it
-// shows parallax when the map tilts or pans. New flocks only set off while `active` (the plain map view); fewer
-// and fainter at night; none under reduced motion. Never takes the pointer.
 const MAP_W = 1679;
 const MAP_H = 937;
 const ALTITUDE = 160; // px above the map, between the low (50) and high (300) clouds
@@ -30,7 +26,6 @@ interface Flight {
   count: number;
 }
 
-// A random crossing: from just outside one edge to just outside the opposite one, bending a little on the way.
 function plan(id: number, night: boolean): Flight {
   const r = (a: number, b: number) => a + Math.random() * (b - a);
   const leftToRight = Math.random() < 0.5;
@@ -41,7 +36,6 @@ function plan(id: number, night: boolean): Flight {
   return { id, from, mid, to, heading, count: night ? 3 : 5 + Math.floor(Math.random() * 3) };
 }
 
-const pct = ([x, y]: [number, number]) => ({ left: `${(x / MAP_W) * 100}%`, top: `${(y / MAP_H) * 100}%` });
 
 export default function Birds({ active, night }: { active: boolean; night: boolean }) {
   const [flight, setFlight] = useState<Flight | null>(null);
@@ -60,7 +54,6 @@ export default function Birds({ active, night }: { active: boolean; night: boole
     let timer = 0;
     const schedule = (ms: number) => {
       timer = window.setTimeout(() => {
-        // Not on the plain map yet (intro, drawer...): try again shortly, so birds show up soon after.
         if (!activeRef.current || document.hidden) return schedule(3000);
         setFlight(plan(nextId.current++, nightRef.current));
         schedule(18000 + Math.random() * 17000);
@@ -75,17 +68,20 @@ export default function Birds({ active, night }: { active: boolean; night: boole
 }
 
 function Flock({ flight, night, onDone }: { flight: Flight; night: boolean; onDone: () => void }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const birdsRef = useRef<HTMLDivElement>(null);
   const shadowRef = useRef<HTMLDivElement>(null);
-  // Kept in a ref so parent re-renders (theme, phase) never restart the flight.
   const done = useRef(onDone);
   useEffect(() => {
     done.current = onDone;
   }, [onDone]);
 
   useEffect(() => {
-    const frames = [pct(flight.from), pct(flight.mid), pct(flight.to)];
-    const opts: KeyframeAnimationOptions = { duration: FLIGHT_MS, easing: "linear", fill: "forwards" };
+    const w = rootRef.current?.offsetWidth ?? 0;
+    const h = rootRef.current?.offsetHeight ?? 0;
+    const at = ([x, y]: [number, number]) => ({ transform: `translate(${(x / MAP_W) * w}px, ${(y / MAP_H) * h}px)` });
+    const frames = [at(flight.from), at(flight.mid), at(flight.to)];
+    const opts: KeyframeAnimationOptions = { duration: FLIGHT_MS, easing: "linear", fill: "both" };
     const a = birdsRef.current?.animate(frames, opts);
     const b = shadowRef.current?.animate(frames, opts);
     if (a) a.onfinish = () => done.current();
@@ -107,6 +103,8 @@ function Flock({ flight, night, onDone }: { flight: Flight; night: boolean; onDo
           width: `calc(var(--mw) * ${BIRD / MAP_W})`,
           height: `calc(var(--mw) * ${(BIRD * 0.4) / MAP_W})`,
           overflow: "visible",
+          transformOrigin: "50% 62%",
+          animation: shadow ? undefined : `bird-flap ${0.32 + (i % 3) * 0.04}s ease-in-out ${-i * 0.11}s infinite alternate`,
         }}
       >
         <path
@@ -116,40 +114,37 @@ function Flock({ flight, night, onDone }: { flight: Flight; night: boolean; onDo
           strokeWidth="1.9"
           strokeLinecap="round"
           strokeLinejoin="round"
-          style={{
-            transformOrigin: "10px 5px",
-            animation: `bird-flap ${0.32 + (i % 3) * 0.04}s ease-in-out ${-i * 0.11}s infinite alternate`,
-          }}
         />
       </svg>
     ));
 
-  // Birds point along the flight; formation offsets are in map px behind the leader.
   const turn = `rotate(${flight.heading}deg)`;
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
-      <div
-        ref={shadowRef}
-        className="absolute h-0 w-0"
-        style={{
-          ...pct(flight.from),
-          transform: `translateZ(1px) translate(calc(var(--mw) * ${10 / MAP_W}), calc(var(--mw) * ${26 / MAP_W})) ${turn}`,
-          opacity: night ? 0.08 : 0.18,
-          filter: "blur(1.5px)",
-        }}
-      >
-        {flock(true)}
+    <div
+      ref={rootRef}
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0"
+      style={{ transformStyle: "preserve-3d" }}
+    >
+      <div ref={shadowRef} className="absolute left-0 top-0 h-0 w-0" style={{ transformStyle: "preserve-3d" }}>
+        <div
+          className="absolute h-0 w-0"
+          style={{
+            transform: `translateZ(1px) translate(calc(var(--mw) * ${10 / MAP_W}), calc(var(--mw) * ${26 / MAP_W})) ${turn}`,
+            opacity: night ? 0.08 : 0.18,
+            filter: "blur(1.5px)",
+          }}
+        >
+          {flock(true)}
+        </div>
       </div>
-      <div
-        ref={birdsRef}
-        className="absolute h-0 w-0"
-        style={{
-          ...pct(flight.from),
-          transform: `translateZ(${ALTITUDE}px) ${turn}`,
-          opacity: night ? 0.6 : 0.9,
-        }}
-      >
-        {flock(false)}
+      <div ref={birdsRef} className="absolute left-0 top-0 h-0 w-0" style={{ transformStyle: "preserve-3d" }}>
+        <div
+          className="absolute h-0 w-0"
+          style={{ transform: `translateZ(${ALTITUDE}px) ${turn}`, opacity: night ? 0.6 : 0.9 }}
+        >
+          {flock(false)}
+        </div>
       </div>
     </div>
   );

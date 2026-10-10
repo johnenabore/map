@@ -2,9 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Background music (public/sound/bgmusic.mp3), looping softly. Browsers only allow sound after the user interacts,
-// so `start()` is called from the intro's Explore click; the music then fades in. `toggle()` mutes or unmutes with a
-// short fade, and the choice is remembered. It pauses while the tab is hidden.
 const SRC = "/sound/bgmusic.mp3";
 const VOLUME = 0.35;
 const MUTED_KEY = "protheka:muted";

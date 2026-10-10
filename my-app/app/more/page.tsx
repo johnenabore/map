@@ -6,7 +6,6 @@ export const metadata: Metadata = {
   title: "More — Protheka",
 };
 
-// More: an empty parchment page for now, with a way back to the map.
 export default function MorePage() {
   return (
     <main className="flex min-h-dvh flex-col" style={{ color: INK, background: PAPER_BG }}>

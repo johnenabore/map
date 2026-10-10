@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import ParchmentDrawer, { OPEN_EASE } from "./parchment-drawer";
 
-// The site's pages in a parchment drawer over the map, opened from the compass fan in the navbar. Tabs at the top
-// switch between them inside the drawer (Home closes it, back to the map). The pages are empty for now.
 export type SitePage = "library" | "more";
 
 const TABS: { id: "home" | SitePage; label: string }[] = [

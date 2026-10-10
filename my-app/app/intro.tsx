@@ -3,9 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LAYERS, ShaderLayer } from "./clouds";
 
-// The intro: the page opens high above the world under drifting clouds, with a title and an Explore button.
-// Exploring dives down: the text lifts away, the cloud banks expand outward past the camera and thin out while the
-// map below grows closer (map-viewer.tsx eases the camera from its "altitude" pose), then the intro is removed.
 const INTRO = {
   kicker: "In the realm of",
   title: "Protheka",

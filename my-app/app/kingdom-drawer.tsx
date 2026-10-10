@@ -5,9 +5,6 @@ import { KINGDOMS } from "./kingdom-data";
 import { Arrow, linkClass } from "./parchment";
 import ParchmentDrawer, { OPEN_EASE } from "./parchment-drawer";
 
-// The discovery drawer: on the first click on a kingdom the parchment drawer (parchment-drawer.tsx) slides over the
-// map with the place's picture, "You discovered <name>", a flourish and a quote, and Enter Kingdom (which starts
-// the flight into the kingdom). The site title stays above it at the top of the screen, like the reference logo.
 const MAP_W = 1679;
 const MAP_H = 937;
 
@@ -128,8 +125,6 @@ function KingdomContent({
   );
 }
 
-// The drawer picture: real art from /kingdoms/art/<id>.jpg if it exists, otherwise a close-up of the kingdom
-// cropped from the map, drifting slowly. Thin light double frame, like the reference.
 function Picture({
   id,
   centre,

@@ -1,5 +1,3 @@
-// Shared look of the parchment pages (the discovery drawer and the books page), after the New World reference.
-// Theme variables (globals.css), so the paper turns dark at night.
 export const INK = "var(--paper-ink)";
 export const PAPER = "var(--paper)";
 

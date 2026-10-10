@@ -1,9 +1,5 @@
 import { MARKERS } from "./region-labels";
 
-// The journey trail: every kingdom discovered is joined to the one before by a dotted ink route, like a course
-// sketched on the map. The newest leg draws itself (after the camera has framed the kingdom); older legs stay as
-// fainter ink. It lies on the map just above the night veil, so it tilts, zooms and pans with it, and never takes
-// the pointer. `stops` are kingdom ids in the order they were discovered; `fresh` = the last one was added this visit.
 const MAP_W = 1679;
 const MAP_H = 937;
 const BOW = 0.18; // how far a leg bends sideways, as a share of its length

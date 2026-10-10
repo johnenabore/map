@@ -1,4 +1,3 @@
-// The PROTHEKA mark: two crossed swords (used by the page title and the discovery drawer header).
 export default function CrossedSwords({ className }: { className?: string }) {
   return (
     <svg

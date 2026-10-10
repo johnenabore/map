@@ -3,14 +3,8 @@
 import { useEffect, useState } from "react";
 import { GRAIN } from "./parchment";
 
-// Controls tips in the bottom-right corner, after the reference: a small curled paper banner showing one tip at a
-// time (an icon with the relevant part in red, bold serif caps), pagination dots and a close button. It appears
-// shortly after load, steps aside while a drawer or kingdom is open (`visible`), and goes away for good once the
-// user has explored and discovered a kingdom (`done`) or closes it.
 const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
 const RED = "var(--hint-red)"; // a theme variable, so SVG uses it through style, not attributes
-// The card's paper colours come from the theme (--hint-* in globals.css): by day they are sampled from the map's
-// own parchment, so the card looks cut from the same sheet.
 const SHAPE = "M2 9 C 70 1, 150 13, 236 6 C 290 2, 330 3, 358 8 L 356 92 C 300 99, 240 89, 170 95 C 100 100, 40 91, 4 96 Z";
 const ROTATE_MS = 4500;
 

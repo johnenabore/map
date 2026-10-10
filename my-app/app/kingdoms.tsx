@@ -2,9 +2,6 @@
 
 import { KINGDOMS } from "./kingdom-data";
 
-// Kingdom hover: invisible hit shapes over each kingdom's land, plus a warm light and a golden coast glow that
-// fade in on hover. Everything sits in the map's 3D layer, so the browser hit-tests the shapes at every tilt and
-// zoom. Shapes and glow boxes are in map pixels (the map image is 1679x937), generated from the map art.
 const MAP_W = 1679;
 const MAP_H = 937;
 // Light up briskly, let go slowly; the warm light also blooms outward a little as it comes on.

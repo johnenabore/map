@@ -3,10 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Arrow, INK, linkClass, PAPER_BG } from "./parchment";
 
-// The parchment drawer frame shared by the kingdom drawer and the page drawer, after the New World reference: a
-// sheet of grey-beige paper with a big ragged edge that slides over the map from the right (up from the bottom on
-// narrow screens, or covering the whole screen with `fullOnMobile`), with BACK TO MAP at the top right. `nav` adds items to the left of the top bar; `children`
-// receives `slidIn`, so content can stagger in once the paper is on its way.
 const EDGE_FILL = "var(--paper-edge)"; // the paper's colour once the grain is on it, so the torn edge has no seam
 const RIM = "var(--paper-rim)";
 export const OPEN_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";

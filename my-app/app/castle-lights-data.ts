@@ -1,5 +1,3 @@
-// Window lights for the castles, towers and houses drawn on the map, lit at night (castle-lights.tsx).
-// One entry per building, each a few window points in map px (the map is 1679x937), placed by eye on the art.
 export const CASTLE_LIGHTS: [number, number][][] = [
   [[441, 258], [449, 258], [445, 268]], // Pref castle
   [[486, 319], [487, 342]], // tower on the Kaynvu shore

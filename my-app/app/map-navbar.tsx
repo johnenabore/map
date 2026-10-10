@@ -6,12 +6,6 @@ import type { SitePage } from "./page-drawer";
 import { Magnifier } from "./map-search";
 import { GRAIN } from "./parchment";
 
-// The bottom bar, copied from the reference's layout: bold serif-cap cells separated by thin rules, a degree ruler
-// in the middle under a compass stamp that overlaps the bar's top edge, and a small icon cell at the far right.
-// Clicking the compass fans out the site's pages (Library, Home, More) like compass points.
-//   [ CONTINUE READING • book ] | ruler + compass | [ THEME • Day ] | [ search ] | [ sun/moon ] | [ sound ]
-// The ruler and compass follow the camera through CSS variables that map-viewer.tsx writes on <html>
-// (--map-heading in degrees, --map-turn, --map-ease), so they move in step with the map without re-rendering.
 const PX_PER_DEG = 3.67; // 45° between labels ≈ 165 px, like the reference
 const TICK_EVERY = 7.5; // a tick every 7.5°; every third one is a small caret mark
 const SPAN = 315;
@@ -56,6 +50,7 @@ export default function MapNavbar({
 
   return (
     <nav
+      id="map-navbar"
       aria-label="Map"
       className="fixed inset-x-0 bottom-0 z-20 flex h-14 items-stretch sm:h-[68px]"
       style={{
@@ -206,8 +201,6 @@ function Divider() {
   return <span aria-hidden="true" className="my-0 w-px shrink-0" style={{ background: rule }} />;
 }
 
-// Ticks every 7.5° (every third a small caret), bold old-style numerals every 45° (90° on narrow screens).
-// It slides with the camera heading.
 function Ruler({ narrow }: { narrow: boolean }) {
   const labelEvery = narrow ? 90 : 45;
   const ticks: number[] = [];

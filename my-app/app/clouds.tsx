@@ -1,15 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { onGpuFrame } from "./gpu-ticker";
 
-// Live clouds, drawn by a WebGL fragment shader: they drift, billow and keep changing shape,
-// are lit from the top-left, and (low layer) cast a soft shadow on the map. Each layer is a canvas
-// inside the map's 3D layer, so it tilts, zooms and pans with the map; `z` (px, scaled with the
-// map layer) is its height above the map: zooming brings the camera closer, so tall layers grow
-// faster than the map (parallax), as if the camera were flying into them.
-// `extent` makes the canvas that many times larger than the map, so there is always cloud behind the
-// visible area even when the height shifts the layer against the map.
-// Units: `scale` = cloud features per map height; `speed` = features per second of drift.
 interface Layer {
   z: number;
   extent: number;
@@ -114,7 +107,7 @@ export const LAYERS = {
 } satisfies Record<string, Layer>;
 
 const ASPECT = 1679 / 937;
-const FRAME_MS = 1000 / 30;
+const NIGHT_FADE_MS = 900; 
 
 const VERTEX = `
 attribute vec2 aPos;
@@ -131,7 +124,7 @@ precision highp float;
 precision mediump float;
 #endif
 varying vec2 vUv;
-uniform float uTime, uScale, uStretch, uSpeed, uCover, uBank, uOpacity, uShadow, uAspect, uSeed, uExtent;
+uniform float uTime, uScale, uStretch, uSpeed, uCover, uBank, uOpacity, uShadow, uAspect, uSeed, uExtent, uDim;
 
 float hash(vec3 p) {
   return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
@@ -203,7 +196,11 @@ void main() {
     float sa = smoothstep(uCover, uCover + 0.22, ds) * uShadow;
     shade = vec4(vec3(0.23, 0.17, 0.1) * sa, sa);
   }
-  gl_FragColor = cloud + shade * (1.0 - alpha);
+  vec4 col4 = cloud + shade * (1.0 - alpha);
+  // Night (uDim = 1): moonlit grey instead of bright white (less saturated and darker).
+  float luma = dot(col4.rgb, vec3(0.2126, 0.7152, 0.0722));
+  col4.rgb = mix(col4.rgb, mix(vec3(luma), col4.rgb, 0.6) * 0.42, uDim);
+  gl_FragColor = col4;
 }`;
 
 function compile(gl: WebGLRenderingContext, type: number, source: string) {
@@ -246,12 +243,14 @@ export function ShaderLayer({
   onFail,
   part,
   className = "",
+  nightDim = false,
 }: {
   layer: Layer;
   seed: number;
   onFail: () => void;
   part?: CloudPart | null;
   className?: string;
+  nightDim?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -295,6 +294,7 @@ export function ShaderLayer({
     uniform("uExtent", layer.extent);
     uniform("uSeed", seed);
     const uTime = gl.getUniformLocation(program, "uTime");
+    const uDim = gl.getUniformLocation(program, "uDim");
 
     gl.viewport(0, 0, layer.res[0], layer.res[1]);
     gl.clearColor(0, 0, 0, 0);
@@ -302,8 +302,21 @@ export function ShaderLayer({
     // Start somewhere different each visit so the sky isn't always the same.
     const start = Math.random() * 200;
     const t0 = performance.now();
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isNight = () => nightDim && document.documentElement.getAttribute("data-theme") === "night";
+    let dim = isNight() ? 1 : 0;
+    let lastNow = t0;
+    let drawn = false;
     const draw = (now: number) => {
-      gl.uniform1f(uTime, start + (now - t0) / 1000);
+      const target = isNight() ? 1 : 0;
+      const step = (now - lastNow) / NIGHT_FADE_MS;
+      lastNow = now;
+      const before = dim;
+      dim = target > dim ? Math.min(target, dim + step) : Math.max(target, dim - step);
+      if (still && drawn && dim === before) return;
+      drawn = true;
+      gl.uniform1f(uDim, dim);
+      gl.uniform1f(uTime, start + ((still ? t0 : now) - t0) / 1000);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
@@ -314,29 +327,18 @@ export function ShaderLayer({
     };
     canvas.addEventListener("webglcontextlost", onLost);
 
-    let raf = 0;
-    let last = 0;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      draw(t0); // one still frame
-    } else {
-      const loop = (now: number) => {
-        raf = requestAnimationFrame(loop);
-        if (now - last < FRAME_MS) return;
-        last = now;
-        draw(now);
-      };
-      raf = requestAnimationFrame(loop);
-    }
+    draw(t0);
+    const stop = onGpuFrame(2, draw);
 
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       canvas.removeEventListener("webglcontextlost", onLost);
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
       gl.deleteShader(vs);
       gl.deleteShader(fs);
     };
-  }, [layer, seed, onFail]);
+  }, [layer, seed, onFail, nightDim]);
 
   return (
     <canvas
@@ -420,10 +422,10 @@ export default function Clouds({ part = null }: { part?: CloudPart | null }) {
   }
   return (
     <>
-      {/* map-cloud: dimmed at night (globals.css) */}
-      <ShaderLayer layer={LAYERS.low} seed={11.3} onFail={fail} part={part} className="map-cloud" />
-      <ShaderLayer layer={LAYERS.high} seed={47.9} onFail={fail} part={part} className="map-cloud" />
-      <ShaderLayer layer={LAYERS.wisps} seed={83.1} onFail={fail} part={part} className="map-cloud" />
+      {/* nightDim: the shader turns them moonlit grey at night */}
+      <ShaderLayer layer={LAYERS.low} seed={11.3} onFail={fail} part={part} nightDim />
+      <ShaderLayer layer={LAYERS.high} seed={47.9} onFail={fail} part={part} nightDim />
+      <ShaderLayer layer={LAYERS.wisps} seed={83.1} onFail={fail} part={part} nightDim />
     </>
   );
 }

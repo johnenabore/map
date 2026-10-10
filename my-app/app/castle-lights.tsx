@@ -1,16 +1,15 @@
 import { CASTLE_LIGHTS } from "./castle-lights-data";
 
-// At night, small warm lights come on in the windows of the castles, towers and houses drawn on the map, one
-// building after another, and flicker like candles. They sit just above the night veil (2.5px) so they stay bright
-// in the dark, and are hidden by day. They never take the pointer.
 const MAP_W = 1679;
 const MAP_H = 937;
 const mpx = (v: number) => `calc(var(--mw) * ${v / MAP_W})`;
 
-// Deterministic per-light variety (no Math.random in render, so server and client agree).
 const vary = (i: number, salt: number) => {
-  const s = Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453;
-  return s - Math.floor(s);
+  let h = Math.imul(i + 1, 0x9e3779b1) ^ Math.imul(salt, 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  h = Math.imul(h ^ (h >>> 12), 0x297a2d39);
+  h ^= h >>> 15;
+  return Math.round(((h >>> 0) / 4294967296) * 1000) / 1000;
 };
 
 export default function CastleLights({ night }: { night: boolean }) {
@@ -24,7 +23,6 @@ export default function CastleLights({ night }: { night: boolean }) {
       {CASTLE_LIGHTS.map((windows, b) =>
         windows.map(([x, y], w) => {
           const i = n++;
-          // Lights come on building by building as night falls; they all go out together at dawn.
           const delay = night ? 900 + b * 70 + w * 120 + vary(i, 1) * 150 : vary(i, 2) * 200;
           return (
             <span
@@ -47,7 +45,9 @@ export default function CastleLights({ night }: { night: boolean }) {
                   translate: "-50% -50%",
                   background:
                     "radial-gradient(circle, rgba(255, 214, 130, 0.85) 0%, rgba(255, 170, 70, 0.4) 30%, rgba(255, 150, 50, 0) 70%)",
-                  animation: `window-flicker ${1.6 + vary(i, 3) * 1.8}s ease-in-out ${-vary(i, 4) * 3}s infinite alternate`,
+                  animation: night && w === 0
+                    ? `window-flicker ${1.6 + vary(i, 3) * 1.8}s ease-in-out ${-vary(i, 4) * 3}s infinite alternate`
+                    : "none",
                 }}
               />
               <span

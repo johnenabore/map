@@ -330,23 +330,20 @@ body[data-overlay] .site-title {
   }
 }
 
-/* Castle window lights at night (castle-lights.tsx): a candle-like flicker of the glow. */
+/* Castle window lights at night (castle-lights.tsx): a candle-like flicker of the glow (opacity only, so it stays on
+   the compositor). */
 @keyframes window-flicker {
   0% {
     opacity: 1;
-    transform: scale(1);
   }
   35% {
-    opacity: 0.72;
-    transform: scale(0.92);
+    opacity: 0.68;
   }
   55% {
     opacity: 0.95;
-    transform: scale(1.04);
   }
   100% {
-    opacity: 0.8;
-    transform: scale(0.96);
+    opacity: 0.78;
   }
 }
 
@@ -370,7 +367,7 @@ body[data-overlay] .site-title {
   }
 }
 
-/* Night: the map's clouds turn to moonlit grey instead of bright white (clouds.tsx). */
+/* Night: the fallback cloud textures turn to moonlit grey (the WebGL clouds dim in their shader, clouds.tsx). */
 .map-cloud {
   transition: filter 900ms ease;
 }
