@@ -84,7 +84,7 @@ function Terrain({
 
         const loader = new THREE.TextureLoader();
         const [map, relief, height] = await Promise.all(
-          ["/new-map.png", "/relief/relief.png", "/terrain/height.png"].map((src) => loader.loadAsync(src)),
+          ["/new-map.png", "/relief/relief.webp", "/terrain/height.png"].map((src) => loader.loadAsync(src)),
         );
         if (disposed) {
           renderer.dispose();

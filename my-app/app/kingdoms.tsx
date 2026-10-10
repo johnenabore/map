@@ -61,15 +61,15 @@ export default function Kingdoms({
       {/* Hit shapes: transparent, but they catch the mouse over each kingdom's land */}
       <svg
         viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+        aria-hidden="true"
         className="pointer-events-none absolute inset-0 h-full w-full"
         style={{ transform: "translateZ(3px)" }}
       >
-        {KINGDOMS.map(({ id, name, path }) => (
+        {KINGDOMS.map(({ id, path }) => (
           <path
             key={id}
             d={path}
             data-kingdom={id}
-            aria-label={name}
             fill="transparent"
             style={{ pointerEvents: "fill", cursor: "pointer" }}
             onPointerEnter={(e) => e.pointerType !== "touch" && onHover(id)}

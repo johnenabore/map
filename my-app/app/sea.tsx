@@ -20,7 +20,7 @@ const SEA_Z = 2;
 const RES_X = 1120;
 const RES_Y = 630;
 const ASPECT = 1679 / 937;
-const MASK_URL = "/sea/sea-mask.png";
+const MASK_URL = "/sea/sea-mask.webp"; // lossless, so the data is exact
 
 const VERTEX = `
 attribute vec2 aPos;

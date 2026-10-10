@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { KINGDOMS } from "./kingdom-data";
+import { Magnifier } from "./magnifier";
 import { GRAIN } from "./parchment";
 
 const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
@@ -140,22 +141,5 @@ export default function MapSearch({
         ))}
       </ul>
     </div>
-  );
-}
-
-export function Magnifier() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5 shrink-0"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <circle cx="10.5" cy="10.5" r="6" />
-      <path d="M15 15 L20.5 20.5" />
-    </svg>
   );
 }

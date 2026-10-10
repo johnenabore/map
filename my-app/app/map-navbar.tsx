@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { KINGDOMS } from "./kingdom-data";
 import type { SitePage } from "./page-drawer";
-import { Magnifier } from "./map-search";
+import { Magnifier } from "./magnifier";
 import { GRAIN } from "./parchment";
 
 const PX_PER_DEG = 3.67; // 45° between labels ≈ 165 px, like the reference

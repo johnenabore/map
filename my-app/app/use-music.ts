@@ -66,9 +66,30 @@ export function useMusic() {
       // storage unavailable: not muted
     }
     mutedRef.current = saved;
-    if (!saved) element(); // start downloading now, while the intro plays
+    // Start downloading on the visitor's first interaction (a mouse move or touch, usually on the way to Explore),
+    // or 5 s after the page has loaded: never during the first load, where it would compete with the map images.
+    let fallback = 0;
+    const events = ["pointermove", "pointerdown", "keydown", "touchstart"] as const;
+    const preload = () => {
+      clearTimeout(fallback);
+      events.forEach((ev) => window.removeEventListener(ev, preload));
+      if (!mutedRef.current) element();
+    };
+    const arm = () => {
+      fallback = window.setTimeout(preload, 5000);
+    };
+    if (!saved) {
+      events.forEach((ev) => window.addEventListener(ev, preload, { once: true, passive: true }));
+      if (document.readyState === "complete") arm();
+      else window.addEventListener("load", arm, { once: true });
+    }
     const t = window.setTimeout(() => setMuted(saved), 0);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(fallback);
+      window.removeEventListener("load", arm);
+      events.forEach((ev) => window.removeEventListener(ev, preload));
+    };
   }, [element]);
 
   // Pause while the tab is in the background; pick up again on return.

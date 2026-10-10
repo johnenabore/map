@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LAYERS, ShaderLayer } from "./clouds";
 
-export const SWEEP_MS = 2600;
+import { SWEEP_MS } from "./sweep-timing";
+
+export { SWEEP_MS };
 const MIDPOINT = 0.46; // share of the sweep when the clouds cover the most of the screen
 const EASE = "cubic-bezier(0.45, 0, 0.55, 1)";
 

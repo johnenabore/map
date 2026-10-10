@@ -1,29 +1,35 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import Clouds, { type CloudPart } from "./clouds";
 import { KINGDOMS } from "./kingdom-data";
-import KingdomDrawer from "./kingdom-drawer";
 import MapHints from "./map-hints";
 import MapNavbar from "./map-navbar";
-import PageDrawer, { type SitePage } from "./page-drawer";
-import KingdomBooks from "./kingdom-books";
+import type { SitePage } from "./page-drawer";
 import Intro, { DIVE_MS } from "./intro";
 import Kingdoms from "./kingdoms";
 import RegionLabels from "./region-labels";
 import Birds from "./birds";
 import CastleLights from "./castle-lights";
 import Journey from "./journey";
-import MapSearch from "./map-search";
-import ThemeSweep, { SWEEP_MS } from "./theme-sweep";
+import { SWEEP_MS } from "./sweep-timing";
 import { holdGpuFrames } from "./gpu-ticker";
 import { useMusic } from "./use-music";
 import Sea from "./sea";
 import SeaLife from "./sea-life";
 import Terrain, { type CameraMove } from "./terrain";
 import map from "../public/new-map.png";
+
+// Loaded on first use (a click, the compass, the search or the theme toggle), so the first visit downloads and runs
+// less JavaScript.
+const KingdomDrawer = dynamic(() => import("./kingdom-drawer"));
+const KingdomBooks = dynamic(() => import("./kingdom-books"));
+const PageDrawer = dynamic(() => import("./page-drawer"));
+const MapSearch = dynamic(() => import("./map-search"));
+const ThemeSweep = dynamic(() => import("./theme-sweep"));
 
 type Level = 1 | 2 | 3;
 
@@ -158,6 +164,21 @@ export default function MapViewer() {
   const pingTimer = useRef(0);
   // Background music: starts with the Explore click (browsers need a user gesture), muted from the navbar.
   const music = useMusic();
+  // Set once the first load has settled: the map's WebGL clouds and sea start then, not while the page is loading
+  // (they are under the intro's clouds at first anyway).
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    const go = () => setIdle(true);
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(go, { timeout: 1500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = window.setTimeout(go, 800);
+    return () => clearTimeout(t);
+  }, []);
+  // The search panel is only built the first time it is opened.
+  const [searchUsed, setSearchUsed] = useState(false);
+  if (searchOpen && !searchUsed) setSearchUsed(true);
   // The camera values last written to the page (see render), so unchanged ones are not written again.
   const written = useRef<Record<string, string>>({});
   // A touch device (phone, tablet): lighter rendering while the camera moves.
@@ -784,24 +805,30 @@ export default function MapViewer() {
             src={map}
             alt="Map of Protheka"
             loading="eager"
+            fetchPriority="high"
+            // The map is as wide as the screen, or wider on tall screens (the layer is 179% of the height).
+            sizes="(min-aspect-ratio: 1679/937) 100vw, 179vh"
             draggable={false}
             className="pointer-events-none h-auto w-full"
             style={{ visibility: terrainOk ? "hidden" : "visible" }}
           />
           {/* Painterly relief: soft upper-left light and lower-right shadow on the drawn trees and mountains,
-              computed from the map's own ink (public/relief/relief.png). The map art itself is untouched. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/relief/relief.png"
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className="pointer-events-none absolute inset-0 h-full w-full select-none"
-            style={{ visibility: terrainOk ? "hidden" : "visible" }}
-          />
+              computed from the map's own ink (public/relief/relief.webp). The map art itself is untouched. */}
+          {/* Loaded once the page is idle: it's subtle shading, under the intro's clouds at first, so the first paint
+              doesn't wait for it. */}
+          {idle && !terrainOk && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/relief/relief.webp"
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              className="pointer-events-none absolute inset-0 h-full w-full select-none"
+            />
+          )}
           {/* Sea life sits under the sea tint, so its paper patches take the same colour as the water */}
           <SeaLife />
-          <Sea />
+          {idle && <Sea />}
           <Kingdoms hovered={hovered} onHover={requestHover} />
           {/* Night: the map dims to a moonlit blue-sepia. It sits just above the paper, sea and kingdom glows (2.5px)
               and under the location markers, labels and clouds, so those stay luminous like lights in the dark. */}
@@ -833,7 +860,7 @@ export default function MapViewer() {
           <Journey stops={journey} fresh={journeyFresh} />
           <RegionLabels hovered={hovered} />
           <Birds active={phase === "map"} night={night} />
-          <Clouds part={part} />
+          {idle && <Clouds part={part} />}
         </div>
 
         {/* Haze toward the horizon on the tilted levels */}
@@ -858,7 +885,7 @@ export default function MapViewer() {
 
       {sweep && <ThemeSweep to={sweep} onMidpoint={sweepMidpoint} onDone={sweepDone} />}
 
-      <MapSearch open={searchOpen} onClose={closeSearch} onPick={flyTo} />
+      {searchUsed && <MapSearch open={searchOpen} onClose={closeSearch} onPick={flyTo} />}
 
       {phase === "intro" || diving ? <Intro diving={diving} onExplore={explore} /> : null}
 
