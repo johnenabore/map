@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { MARKERS } from "./region-labels";
 
 const MAP_W = 1679;
@@ -30,7 +31,7 @@ function leg(a: Pt, b: Pt, side: number) {
 const sideOf = (from: string, to: string) =>
   [...(from < to ? from + to : to + from)].reduce((s, ch) => s + ch.charCodeAt(0), 0) % 2 ? 1 : -1;
 
-export default function Journey({ stops, fresh }: { stops: string[]; fresh: boolean }) {
+function Journey({ stops, fresh }: { stops: string[]; fresh: boolean }) {
   const legs = stops.slice(1).flatMap((to, i) => {
     const from = stops[i];
     const a = MARKERS[from];
@@ -95,3 +96,6 @@ export default function Journey({ stops, fresh }: { stops: string[]; fresh: bool
     </svg>
   );
 }
+
+// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
+export default memo(Journey);

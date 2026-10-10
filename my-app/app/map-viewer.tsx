@@ -18,6 +18,7 @@ import CastleLights from "./castle-lights";
 import Journey from "./journey";
 import MapSearch from "./map-search";
 import ThemeSweep, { SWEEP_MS } from "./theme-sweep";
+import { holdGpuFrames } from "./gpu-ticker";
 import { useMusic } from "./use-music";
 import Sea from "./sea";
 import SeaLife from "./sea-life";
@@ -39,22 +40,24 @@ const PARCHMENT = "var(--map-bg)"; // around the map and in the haze; darkens at
 const RUBBER = 0.35; // share of the drag that still moves the map past its limit
 const RUBBER_MAX = 90; // screen px the map can be pulled past its limit
 const EASE = "800ms cubic-bezier(0.22, 0.8, 0.3, 1)";
-// --tilt/--rot are registered in globals.css so the labels' counter-rotation animates with the camera.
-const TRANSITION = `transform ${EASE}, --tilt ${EASE}, --rot ${EASE}`;
+// --tilt/--rot (the camera's angles) are set on the label sheet only, with --cam-ease: each label eases its own
+// transform to the new counter-rotation. With only transform (and opacity) transitions in play, a camera move can
+// run entirely on the browser's compositor, which keeps it smooth on phones.
+const TRANSITION = `transform ${EASE}`;
 // Hovering a kingdom eases the camera in a little toward it, slower and softer than a level change.
 const HOVER_EASE = "1400ms cubic-bezier(0.25, 0.1, 0.25, 1)";
-const HOVER_TRANSITION = `transform ${HOVER_EASE}, --tilt ${HOVER_EASE}, --rot ${HOVER_EASE}`;
+const HOVER_TRANSITION = `transform ${HOVER_EASE}`;
 // The intro starts at "altitude" (the map a little farther away) and dives down to the normal view.
 const INTRO_ALTITUDE = 0.93;
 const DIVE_EASE = `${DIVE_MS - 100}ms cubic-bezier(0.45, 0, 0.2, 1)`;
-const DIVE_TRANSITION = `transform ${DIVE_EASE}, --tilt ${DIVE_EASE}, --rot ${DIVE_EASE}`;
+const DIVE_TRANSITION = `transform ${DIVE_EASE}`;
 const HOVER_ZOOM = 1.06;
 const HOVER_PULL = 0.12; // share of the way the camera moves toward the hovered kingdom
 const HOVER_IN_MS = 80; // pause before a kingdom lights up
 const HOVER_OUT_MS = 180; // grace before it lets go
 // Entering a kingdom flies the camera to it before its books page opens; going back eases home softly.
 const FLY_EASE = "1600ms cubic-bezier(0.65, 0, 0.35, 1)";
-const FLY_TRANSITION = `transform ${FLY_EASE}, --tilt ${FLY_EASE}, --rot ${FLY_EASE}`;
+const FLY_TRANSITION = `transform ${FLY_EASE}`;
 const FLY_TILT = 34;
 const FLY_ROT = -4;
 const CLICK_SLOP = 6; // px: a press that moves less than this is a click, not a drag
@@ -95,6 +98,9 @@ const PINCH_IN = 1.2;
 const PINCH_OUT = 0.83;
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
+
+// Looping decorations paused during camera moves on phones (see render).
+const DECOR = new Set(["window-flicker", "marker-breathe", "serpent-swim", "ship-rock", "bird-flap"]);
 
 export default function MapViewer() {
   const layerRef = useRef<HTMLDivElement>(null);
@@ -137,7 +143,7 @@ export default function MapViewer() {
   const [discovered, setDiscovered] = useState(false);
   // The navbar: the last book opened (to continue reading), and the day/night theme.
   const [lastBook, setLastBook] = useState<string | null>(null);
-  const [night, setNight] = useState(false);
+  const [night, setNight] = useState(true); // dark by default; a visitor's day choice is restored below
   // The 3D terrain (three.js) replaces the flat map image once it is ready; the image stays as the fallback.
   const [terrainOk, setTerrainOk] = useState(false);
   // Day/night change: the cloud sweep playing (and toward which theme), and the warm dusk/dawn veil it pulses.
@@ -154,6 +160,13 @@ export default function MapViewer() {
   const music = useMusic();
   // The camera values last written to the page (see render), so unchanged ones are not written again.
   const written = useRef<Record<string, string>>({});
+  // A touch device (phone, tablet): lighter rendering while the camera moves.
+  const coarse = useRef(false);
+  const movingTimer = useRef(0);
+  const pausedDecor = useRef(new Set<Animation>());
+  useEffect(() => {
+    coarse.current = window.matchMedia("(pointer: coarse)").matches;
+  }, []);
 
   const render = useCallback((x: number, y: number, animate: boolean | "hover" | "fly" | "dive", soft = false) => {
     const layer = layerRef.current;
@@ -199,7 +212,7 @@ export default function MapViewer() {
     // browser restyle it all. While dragging, only the transform below changes.
     const css = written.current;
     const put = (el: HTMLElement, name: string, value: string) => {
-      const key = name + (el === layer ? "" : "@nav");
+      const key = `${name}@${el.id || "layer"}`;
       if (css[key] === value) return;
       css[key] = value;
       if (name === "width") el.style.width = value;
@@ -208,8 +221,7 @@ export default function MapViewer() {
     };
     put(layer, "width", `${baseW}px`);
     put(layer, "--mw", `${baseW}px`);
-    put(layer, "--tilt", `${tilt}deg`);
-    put(layer, "--rot", `${rot}deg`);
+    const ease = animate === "dive" ? DIVE_EASE : animate === "fly" ? FLY_EASE : animate === "hover" ? HOVER_EASE : EASE;
     put(
       layer,
       "transition",
@@ -223,6 +235,31 @@ export default function MapViewer() {
               ? TRANSITION
               : "none",
     );
+    const sheet = document.getElementById("label-sheet");
+    if (sheet) {
+      put(sheet, "--cam-ease", animate ? ease : "0ms");
+      put(sheet, "--tilt", `${tilt}deg`);
+      put(sheet, "--rot", `${rot}deg`);
+    }
+    // On phones, while the camera eases: pause the cloud and sea redraws (GPU) and the small looping decorations
+    // (flickering windows, breathing markers, sea life, wing beats). The terrain redraws on the main thread during a
+    // move, and every main-thread frame also restyles each running animation, which a phone feels. They pick up again
+    // when the move ends.
+    if (animate && animate !== "dive" && coarse.current) {
+      const ms = Number.parseInt(ease, 10);
+      holdGpuFrames(ms);
+      for (const a of layer.getAnimations({ subtree: true })) {
+        if (a instanceof CSSAnimation && DECOR.has(a.animationName) && a.playState === "running") {
+          a.pause();
+          pausedDecor.current.add(a);
+        }
+      }
+      clearTimeout(movingTimer.current);
+      movingTimer.current = window.setTimeout(() => {
+        pausedDecor.current.forEach((a) => a.play());
+        pausedDecor.current.clear();
+      }, ms + 50);
+    }
     const nav = document.getElementById("map-navbar");
     if (nav) {
       put(
@@ -320,7 +357,7 @@ export default function MapViewer() {
     }
     const t = window.setTimeout(() => {
       if (book && KINGDOMS.some((k) => k.id === book)) setLastBook(book);
-      if (theme === "night") setNight(true);
+      if (theme === "day") setNight(false);
       if (trail.length) setJourney(trail);
     }, 0);
     return () => clearTimeout(t);

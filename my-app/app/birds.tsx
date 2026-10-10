@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 const MAP_W = 1679;
 const MAP_H = 937;
@@ -37,7 +37,7 @@ function plan(id: number, night: boolean): Flight {
 }
 
 
-export default function Birds({ active, night }: { active: boolean; night: boolean }) {
+function Birds({ active, night }: { active: boolean; night: boolean }) {
   const [flight, setFlight] = useState<Flight | null>(null);
   const activeRef = useRef(active);
   const nightRef = useRef(night);
@@ -149,3 +149,6 @@ function Flock({ flight, night, onDone }: { flight: Flight; night: boolean; onDo
     </div>
   );
 }
+
+// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
+export default memo(Birds);

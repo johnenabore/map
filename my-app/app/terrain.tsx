@@ -1,6 +1,6 @@
 "use client";
 
-import { type RefObject, useEffect, useRef } from "react";
+import { memo, type RefObject, useEffect, useRef } from "react";
 
 const MAP_W = 1679;
 const MAP_H = 937;
@@ -50,7 +50,7 @@ export interface CameraMove {
   height: number;
 }
 
-export default function Terrain({
+function Terrain({
   layerRef,
   onReady,
 }: {
@@ -67,6 +67,13 @@ export default function Terrain({
     (async () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+      // Phones and tablets keep the flat map with its painted relief. The 3D terrain has to be redrawn from the main
+      // thread on every frame of a camera move, which stops the move from running smoothly on the compositor; on a
+      // small screen its 22px lift is barely visible anyway.
+      if (window.matchMedia("(pointer: coarse)").matches) {
+        onReady(false);
+        return;
+      }
       try {
         const THREE = await import("three");
         if (disposed) return;
@@ -201,3 +208,6 @@ export default function Terrain({
 
   return <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />;
 }
+
+// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
+export default memo(Terrain);

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { SEA_LIFE } from "./sealife-data";
 
 const MAP_W = 1679;
@@ -10,7 +11,7 @@ const box = (x: number, y: number, w: number, h: number): React.CSSProperties =>
   height: `${(h / MAP_H) * 100}%`,
 });
 
-export default function SeaLife() {
+function SeaLife() {
   return (
     <div
       aria-hidden="true"
@@ -41,3 +42,6 @@ export default function SeaLife() {
     </div>
   );
 }
+
+// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
+export default memo(SeaLife);

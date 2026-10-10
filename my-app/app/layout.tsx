@@ -47,6 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      data-theme="night"
       className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} ${fell.variable} ${cormorant.variable} ${openSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

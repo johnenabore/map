@@ -40,7 +40,7 @@ const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 // rotateX(tilt) rotateZ(rot) scale(zoom); undoing the tilt and turn (rotateZ(-rot), rotateX(-tilt)) stops the text
 // from tilting with the paper, and re-applying rot keeps it following the map's turn. The zoom is deliberately not
 // undone, so labels grow with the map and there is no separate size animation to fall out of step with it.
-// The map layer (map-viewer.tsx) keeps --tilt, --rot and --mw up to date.
+// map-viewer.tsx keeps --mw up to date on the map layer, and --tilt and --rot on the label sheet (#label-sheet).
 const LIFT = 70;
 const floating = (rot: number) =>
   `translateZ(${LIFT}px) rotateZ(calc(var(--rot) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(var(--rot)) rotateZ(${rot}deg) translate(-50%, -50%)`;
@@ -77,7 +77,7 @@ export default function RegionLabels({ hovered = null }: { hovered?: string | nu
           />
         );
       })}
-      <div className="absolute inset-0" style={{ transform: "translateZ(3.5px)" }}>
+      <div id="label-sheet" className="absolute inset-0" style={{ transform: "translateZ(3.5px)" }}>
         {LABELS.map(({ name, x, y, size, rot }) => {
           const id = name.toLowerCase();
           const on = hovered === id;
@@ -111,7 +111,9 @@ export default function RegionLabels({ hovered = null }: { hovered?: string | nu
                 WebkitTextStroke: "0.06em var(--label-ink)", // IM Fell is thin; this gives it the weight of printed ink
                 // A tight paper-coloured halo separates the ink from the drawings underneath; warm when hovered.
                 textShadow: on ? "var(--label-halo-on)" : "var(--label-halo)",
-                transition: `text-shadow 600ms ${EASE}, color 900ms ease`,
+                // The counter-rotation follows the camera with its own ease (--cam-ease, set with --tilt/--rot on the
+                // sheet by map-viewer.tsx): a transform transition runs on the compositor, unlike animating the angles.
+                transition: `text-shadow 600ms ${EASE}, color 900ms ease, transform var(--cam-ease, 0ms)`,
               }}
             >
               <span

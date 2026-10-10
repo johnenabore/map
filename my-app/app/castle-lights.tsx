@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { CASTLE_LIGHTS } from "./castle-lights-data";
 
 const MAP_W = 1679;
@@ -12,7 +13,7 @@ const vary = (i: number, salt: number) => {
   return Math.round(((h >>> 0) / 4294967296) * 1000) / 1000;
 };
 
-export default function CastleLights({ night }: { night: boolean }) {
+function CastleLights({ night }: { night: boolean }) {
   let n = 0;
   return (
     <div
@@ -67,3 +68,6 @@ export default function CastleLights({ night }: { night: boolean }) {
     </div>
   );
 }
+
+// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
+export default memo(CastleLights);

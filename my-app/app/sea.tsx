@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { onGpuFrame } from "./gpu-ticker";
+import { memo, useEffect, useRef } from "react";
+import { gpuNow, onGpuFrame } from "./gpu-ticker";
 
 const LOOK = {
   tint: [0.27, 0.36, 0.43], // cool blue-grey
@@ -96,7 +96,7 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   return shader;
 }
 
-export default function Sea() {
+function Sea() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -156,7 +156,7 @@ export default function Sea() {
 
       const uTime = loc("uTime");
       const start = Math.random() * 100;
-      const t0 = performance.now();
+      const t0 = gpuNow();
       const draw = (now: number) => {
         gl.uniform1f(uTime, start + (now - t0) / 1000);
         gl.clear(gl.COLOR_BUFFER_BIT);
@@ -193,3 +193,6 @@ export default function Sea() {
     />
   );
 }
+
+// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
+export default memo(Sea);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { onGpuFrame } from "./gpu-ticker";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { gpuNow, onGpuFrame } from "./gpu-ticker";
 
 interface Layer {
   z: number;
@@ -301,7 +301,7 @@ export function ShaderLayer({
 
     // Start somewhere different each visit so the sky isn't always the same.
     const start = Math.random() * 200;
-    const t0 = performance.now();
+    const t0 = gpuNow();
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const isNight = () => nightDim && document.documentElement.getAttribute("data-theme") === "night";
     let dim = isNight() ? 1 : 0;
@@ -407,7 +407,7 @@ function TextureLayer({
   );
 }
 
-export default function Clouds({ part = null }: { part?: CloudPart | null }) {
+function Clouds({ part = null }: { part?: CloudPart | null }) {
   const [fallback, setFallback] = useState(false);
   const fail = useCallback(() => setFallback(true), []);
 
@@ -429,3 +429,6 @@ export default function Clouds({ part = null }: { part?: CloudPart | null }) {
     </>
   );
 }
+
+// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
+export default memo(Clouds);
