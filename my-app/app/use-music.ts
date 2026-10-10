@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const SRC = "/sound/bgmusic.mp3";
 const VOLUME = 0.35;
 const MUTED_KEY = "protheka:muted";
+const LEAD_IN = 1.05; // seconds of silence at the start of the track, skipped the first time it plays
+const START_FADE_MS = 1200;
 
 export function useMusic() {
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -22,29 +24,37 @@ export function useMusic() {
     const t0 = performance.now();
     const step = (now: number) => {
       const k = Math.min(1, (now - t0) / ms);
-      a.volume = from + (to - from) * k * k * (3 - 2 * k);
+      a.volume = from + (to - from) * k * (2 - k); // ease-out: audible right away, settles gently
       if (k < 1) fadeRaf.current = requestAnimationFrame(step);
       else if (to === 0) a.pause();
     };
     fadeRaf.current = requestAnimationFrame(step);
   }, []);
 
+  // The audio element, created once. Making it early lets the browser download the track during the intro, so it can
+  // start the moment Explore is clicked instead of after a network wait.
+  const element = useCallback(() => {
+    if (!audio.current) {
+      const a = new Audio(SRC);
+      a.loop = true;
+      a.preload = "auto";
+      a.volume = 0;
+      a.currentTime = LEAD_IN;
+      audio.current = a;
+    }
+    return audio.current;
+  }, []);
+
   const play = useCallback(
     (fadeMs: number) => {
-      if (!audio.current) {
-        audio.current = new Audio(SRC);
-        audio.current.loop = true;
-        audio.current.preload = "auto";
-        audio.current.volume = 0;
-      }
-      audio.current
+      element()
         .play()
         .then(() => fade(VOLUME, fadeMs))
         .catch(() => {
           // blocked or unavailable: stay silent
         });
     },
-    [fade],
+    [element, fade],
   );
 
   // Restore the muted choice from the last visit.
@@ -56,9 +66,10 @@ export function useMusic() {
       // storage unavailable: not muted
     }
     mutedRef.current = saved;
+    if (!saved) element(); // start downloading now, while the intro plays
     const t = window.setTimeout(() => setMuted(saved), 0);
     return () => clearTimeout(t);
-  }, []);
+  }, [element]);
 
   // Pause while the tab is in the background; pick up again on return.
   useEffect(() => {
@@ -78,7 +89,7 @@ export function useMusic() {
   const start = useCallback(() => {
     if (started.current) return;
     started.current = true;
-    if (!mutedRef.current) play(3000);
+    if (!mutedRef.current) play(START_FADE_MS);
   }, [play]);
 
   const toggle = useCallback(() => {
