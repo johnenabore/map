@@ -216,53 +216,6 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   return shader;
 }
 
-// One WebGL context and one compiled cloud program for every cloud layer on the page (map, intro, day/night sweep).
-// Creating a WebGL context and compiling the shader are the slow parts of starting up, especially on phones; with a
-// shared renderer they happen once instead of once per layer. Each layer renders into the corner of this hidden
-// canvas at its own resolution and copies the result onto its own (2D) canvas, which stays in the page where it is,
-// so the layers keep their own place in the 3D map and their own CSS animation.
-const UNIFORMS = ["uTime", "uScale", "uStretch", "uSpeed", "uCover", "uBank", "uOpacity", "uShadow", "uAspect", "uSeed", "uExtent", "uDim"] as const;
-interface CloudGL {
-  gl: WebGLRenderingContext;
-  canvas: HTMLCanvasElement;
-  loc: Record<(typeof UNIFORMS)[number], WebGLUniformLocation | null>;
-}
-let shared: CloudGL | null | undefined; // undefined: not created yet; null: WebGL unavailable or lost
-const onLostAll = new Set<() => void>();
-
-function cloudGL(): CloudGL | null {
-  if (shared !== undefined) return shared;
-  shared = null;
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(...Object.values(LAYERS).map((l) => l.res[0]));
-  canvas.height = Math.max(...Object.values(LAYERS).map((l) => l.res[1]));
-  const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false });
-  const vs = gl && compile(gl, gl.VERTEX_SHADER, VERTEX);
-  const fs = gl && compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
-  const program = gl?.createProgram();
-  if (!gl || !vs || !fs || !program) return null;
-  gl.attachShader(program, vs);
-  gl.attachShader(program, fs);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
-  gl.useProgram(program);
-  // One triangle that covers the viewport.
-  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const aPos = gl.getAttribLocation(program, "aPos");
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-  gl.clearColor(0, 0, 0, 0);
-  canvas.addEventListener("webglcontextlost", (e) => {
-    e.preventDefault();
-    shared = null;
-    onLostAll.forEach((f) => f());
-  });
-  const loc = Object.fromEntries(UNIFORMS.map((u) => [u, gl.getUniformLocation(program, u)])) as CloudGL["loc"];
-  shared = { gl, canvas, loc };
-  return shared;
-}
-
 // Where the clouds part during a kingdom click (map pixels); `open` animates the hole open or closed.
 export interface CloudPart {
   x: number;
@@ -303,14 +256,48 @@ export function ShaderLayer({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const g = cloudGL();
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !g || !ctx) {
+    if (!canvas) return;
+    const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false });
+    const vs = gl && compile(gl, gl.VERTEX_SHADER, VERTEX);
+    const fs = gl && compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
+    const program = gl?.createProgram();
+    if (!gl || !vs || !fs || !program) {
       onFail();
       return;
     }
-    const { gl, loc } = g;
-    const [w, h] = layer.res;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      onFail();
+      return;
+    }
+    gl.useProgram(program);
+
+    // One triangle that covers the whole canvas.
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(program, "aPos");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const uniform = (name: string, value: number) => gl.uniform1f(gl.getUniformLocation(program, name), value);
+    uniform("uScale", layer.scale);
+    uniform("uStretch", layer.stretch);
+    uniform("uSpeed", layer.speed);
+    uniform("uCover", layer.cover);
+    uniform("uBank", layer.bank);
+    uniform("uOpacity", layer.opacity);
+    uniform("uShadow", layer.shadow);
+    uniform("uAspect", ASPECT);
+    uniform("uExtent", layer.extent);
+    uniform("uSeed", seed);
+    const uTime = gl.getUniformLocation(program, "uTime");
+    const uDim = gl.getUniformLocation(program, "uDim");
+
+    gl.viewport(0, 0, layer.res[0], layer.res[1]);
+    gl.clearColor(0, 0, 0, 0);
 
     // Start somewhere different each visit so the sky isn't always the same.
     const start = Math.random() * 200;
@@ -327,35 +314,29 @@ export function ShaderLayer({
       const before = dim;
       dim = target > dim ? Math.min(target, dim + step) : Math.max(target, dim - step);
       if (still && drawn && dim === before) return;
-      if (gl.isContextLost()) return;
       drawn = true;
-      gl.viewport(0, 0, w, h);
-      gl.uniform1f(loc.uScale, layer.scale);
-      gl.uniform1f(loc.uStretch, layer.stretch);
-      gl.uniform1f(loc.uSpeed, layer.speed);
-      gl.uniform1f(loc.uCover, layer.cover);
-      gl.uniform1f(loc.uBank, layer.bank);
-      gl.uniform1f(loc.uOpacity, layer.opacity);
-      gl.uniform1f(loc.uShadow, layer.shadow);
-      gl.uniform1f(loc.uAspect, ASPECT);
-      gl.uniform1f(loc.uExtent, layer.extent);
-      gl.uniform1f(loc.uSeed, seed);
-      gl.uniform1f(loc.uDim, dim);
-      gl.uniform1f(loc.uTime, start + ((still ? t0 : now) - t0) / 1000);
+      gl.uniform1f(uDim, dim);
+      gl.uniform1f(uTime, start + ((still ? t0 : now) - t0) / 1000);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      // The viewport is the bottom-left corner of the shared canvas; copy it, replacing what was there.
-      ctx.globalCompositeOperation = "copy";
-      ctx.drawImage(g.canvas, 0, g.canvas.height - h, w, h, 0, 0, w, h);
     };
 
-    onLostAll.add(onFail);
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      onFail();
+    };
+    canvas.addEventListener("webglcontextlost", onLost);
+
     draw(t0);
     const stop = onGpuFrame(2, draw);
 
     return () => {
       stop();
-      onLostAll.delete(onFail);
+      canvas.removeEventListener("webglcontextlost", onLost);
+      gl.deleteBuffer(buffer);
+      gl.deleteProgram(program);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
     };
   }, [layer, seed, onFail, nightDim]);
 

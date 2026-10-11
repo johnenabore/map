@@ -168,7 +168,15 @@ export default function MapViewer() {
   // (they are under the intro's clouds at first anyway).
   const [idle, setIdle] = useState(false);
   useEffect(() => {
-    const go = () => setIdle(true);
+    const go = () => {
+      setIdle(true);
+      // Fetch the on-demand pieces in the background now, so the first kingdom tap or drawer doesn't wait for them.
+      void import("./kingdom-drawer");
+      void import("./kingdom-books");
+      void import("./page-drawer");
+      void import("./map-search");
+      void import("./theme-sweep");
+    };
     if (typeof window.requestIdleCallback === "function") {
       const id = window.requestIdleCallback(go, { timeout: 1500 });
       return () => window.cancelIdleCallback(id);
