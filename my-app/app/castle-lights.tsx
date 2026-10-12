@@ -5,6 +5,7 @@ const MAP_W = 1679;
 const MAP_H = 937;
 const mpx = (v: number) => `calc(var(--mw) * ${v / MAP_W})`;
 
+// Integer hash: identical on server and client (a Math.sin hash differed in its last bits and broke hydration).
 const vary = (i: number, salt: number) => {
   let h = Math.imul(i + 1, 0x9e3779b1) ^ Math.imul(salt, 0x85ebca6b);
   h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
@@ -46,6 +47,7 @@ function CastleLights({ night }: { night: boolean }) {
                   translate: "-50% -50%",
                   background:
                     "radial-gradient(circle, rgba(255, 214, 130, 0.85) 0%, rgba(255, 170, 70, 0.4) 30%, rgba(255, 150, 50, 0) 70%)",
+                  // Only at night, and one window per building, to keep the number of running animations low.
                   animation: night && w === 0
                     ? `window-flicker ${1.6 + vary(i, 3) * 1.8}s ease-in-out ${-vary(i, 4) * 3}s infinite alternate`
                     : "none",
@@ -69,5 +71,4 @@ function CastleLights({ night }: { night: boolean }) {
   );
 }
 
-// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
 export default memo(CastleLights);

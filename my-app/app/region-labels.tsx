@@ -3,7 +3,6 @@ import { KINGDOMS } from "./kingdom-data";
 const MAP_W = 1679;
 const MAP_H = 937;
 
-// Where the kingdom's location marker sits (map px).
 interface Dot {
   x: number;
   y: number;
@@ -31,17 +30,12 @@ const LABELS: Label[] = [
   { name: "Prazh", x: 1199, y: 705, size: 2.7, rot: 5, dot: { x: 1210, y: 764 } },
 ];
 
-// Marker positions by kingdom id (the journey trail runs from marker to marker).
 export const MARKERS: Record<string, Dot> = Object.fromEntries(LABELS.map((l) => [l.name.toLowerCase(), l.dot]));
 
 const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 
-// Floating label: lifted off the map by LIFT px and kept flat to the screen. The map layer's transform is
-// rotateX(tilt) rotateZ(rot) scale(zoom); undoing the tilt and turn (rotateZ(-rot), rotateX(-tilt)) stops the text
-// from tilting with the paper, and re-applying rot keeps it following the map's turn. The zoom is deliberately not
-// undone, so labels grow with the map and there is no separate size animation to fall out of step with it.
-// map-viewer.tsx keeps --mw up to date on the map layer, and --tilt and --rot on the label sheet (#label-sheet).
 const LIFT = 70;
+// Undo the map's tilt and turn so labels stay upright and flat to the screen, then re-apply the turn.
 const floating = (rot: number) =>
   `translateZ(${LIFT}px) rotateZ(calc(var(--rot) * -1)) rotateX(calc(var(--tilt) * -1)) rotateZ(var(--rot)) rotateZ(${rot}deg) translate(-50%, -50%)`;
 
@@ -56,14 +50,12 @@ const textStyle = (size: number): React.CSSProperties => ({
   lineHeight: 1,
   textTransform: "uppercase",
   letterSpacing: "0.1em",
-  paddingLeft: "0.1em", // balances the trailing letter-space so the word stays centred
+  paddingLeft: "0.1em",
 });
 
-// The hovered kingdom's label lifts a little, warms up, and shows its subtitle; the others dim slightly.
 export default function RegionLabels({ hovered = null }: { hovered?: string | null }) {
   return (
     <div className="pointer-events-none absolute inset-0" style={{ transformStyle: "preserve-3d" }}>
-      {/* Location markers: their own elements, lifted just above the night veil (see map-viewer.tsx) */}
       {LABELS.map(({ name, dot }, index) => {
         const id = name.toLowerCase();
         return (
@@ -77,6 +69,7 @@ export default function RegionLabels({ hovered = null }: { hovered?: string | nu
           />
         );
       })}
+      {/* One sheet above the night veil; inset-0 keeps the labels' % positions relative to the map */}
       <div id="label-sheet" className="absolute inset-0" style={{ transform: "translateZ(3.5px)" }}>
         {LABELS.map(({ name, x, y, size, rot }) => {
           const id = name.toLowerCase();
@@ -84,7 +77,6 @@ export default function RegionLabels({ hovered = null }: { hovered?: string | nu
           const dim = hovered !== null && !on;
           return (
             <div key={name} style={{ opacity: dim ? 0.75 : 1, transition: `opacity 600ms ${EASE}` }}>
-            {/* Soft shadow on the paper, under where the label hovers */}
             <span
               className="absolute whitespace-nowrap"
               aria-hidden="true"
@@ -105,14 +97,11 @@ export default function RegionLabels({ hovered = null }: { hovered?: string | nu
                 ...textStyle(size),
                 left: pct(x, MAP_W),
                 top: pct(y, MAP_H),
-                transformOrigin: "0 0", // the label turns about its anchor point on the map
+                transformOrigin: "0 0",
                 transform: floating(rot),
-                color: "var(--label-ink)", // the reference map's label ink by day, pale ink at night (globals.css)
-                WebkitTextStroke: "0.06em var(--label-ink)", // IM Fell is thin; this gives it the weight of printed ink
-                // A tight paper-coloured halo separates the ink from the drawings underneath; warm when hovered.
+                color: "var(--label-ink)",
+                WebkitTextStroke: "0.06em var(--label-ink)",
                 textShadow: on ? "var(--label-halo-on)" : "var(--label-halo)",
-                // The counter-rotation follows the camera with its own ease (--cam-ease, set with --tilt/--rot on the
-                // sheet by map-viewer.tsx): a transform transition runs on the compositor, unlike animating the angles.
                 transition: `text-shadow 600ms ${EASE}, color 900ms ease, transform var(--cam-ease, 0ms)`,
               }}
             >
@@ -125,7 +114,6 @@ export default function RegionLabels({ hovered = null }: { hovered?: string | nu
               >
                 {name}
               </span>
-              {/* Subtitle, fading in under the name */}
               <span
                 className="absolute left-1/2 top-full whitespace-nowrap"
                 style={{
@@ -168,7 +156,6 @@ function Marker({ x, y, on, dim, index }: { x: number; y: number; on: boolean; d
         transition: `opacity 600ms ${EASE}`,
       }}
     >
-      {/* glow */}
       <span
         className="absolute rounded-full"
         style={{
@@ -191,7 +178,6 @@ function Marker({ x, y, on, dim, index }: { x: number; y: number; on: boolean; d
           }}
         />
       </span>
-      {/* ring */}
       <span
         className="absolute rounded-full"
         style={{
@@ -206,7 +192,6 @@ function Marker({ x, y, on, dim, index }: { x: number; y: number; on: boolean; d
           transition: `scale 500ms ${EASE}`,
         }}
       />
-      {/* centre */}
       <span
         className="absolute rounded-full"
         style={{

@@ -4,29 +4,29 @@ import { memo, useEffect, useRef } from "react";
 import { gpuNow, onGpuFrame } from "./gpu-ticker";
 
 const LOOK = {
-  tint: [0.27, 0.36, 0.43], // cool blue-grey
+  tint: [0.27, 0.36, 0.43],
   tintAmount: 0.24,
-  shade: [0.2, 0.17, 0.14], // dark brown-grey, to sink the water a little below the land
+  shade: [0.2, 0.17, 0.14],
   shadeAmount: 0.1,
-  crest: [0.86, 0.9, 0.9], // ripple crests
+  crest: [0.86, 0.9, 0.9],
   crestAmount: 0.12,
-  foam: [0.97, 0.93, 0.82], // pale cream coast glow
+  foam: [0.97, 0.93, 0.82],
   glowAmount: 0.34,
   foamAmount: 0.4,
-  cycle: 38, // seconds for a ripple to travel one wavelength
+  cycle: 38,
 } as const;
 
 const SEA_Z = 2;
 const RES_X = 1120;
 const RES_Y = 630;
 const ASPECT = 1679 / 937;
-const MASK_URL = "/sea/sea-mask.webp"; // lossless, so the data is exact
+const MASK_URL = "/sea/sea-mask.webp";
 
 const VERTEX = `
 attribute vec2 aPos;
 varying vec2 vUv;
 void main() {
-  vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5); // (0,0) = top-left of the map, like the mask
+  vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5);
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
@@ -50,20 +50,18 @@ void main() {
   vec3 m = texture2D(uMask, vUv).rgb;
   float sea = m.r;
   if (sea < 0.01) { gl_FragColor = vec4(0.0); return; }
-  float dist = m.g;           // 0 at the coast, 1 far out
+  float dist = m.g;
   float blob = m.b;
   vec2 p = vec2(vUv.x * uAspect, vUv.y);
   float t = uTime / uCycle;
 
-  // Long, soft wave bands drifting slowly, warped by noise so they are not regular.
   vec2 warp = vec2(noise(p * 6.0 + t * 2.0), noise(p * 6.0 + 9.0 - t * 2.0)) - 0.5;
   float w1 = sin((p.x * 5.0 + p.y * 9.0 + warp.x * 2.2) * 6.2832 - t * 6.2832);
   float w2 = sin((p.x * 8.0 - p.y * 6.0 + warp.y * 2.6) * 6.2832 + t * 6.2832 * 0.8);
   float ripple = (w1 * 0.55 + w2 * 0.45) * 0.5 + 0.5;
   float crest = sstep(0.72, 0.98, ripple);
-  float calm = sstep(0.08, 0.4, dist);            // ripples fade out near the coast, where the foam is
+  float calm = sstep(0.08, 0.4, dist);
 
-  // Cool tint with slow variation, a slight dark shade, then the faint crests.
   float tintA = uTintAmount * (0.8 + 0.4 * blob) * sea;
   vec3 col = uTint * tintA;
   float a = tintA;
@@ -72,11 +70,10 @@ void main() {
   float crA = crest * calm * uCrestAmount * sea;
   col = col * (1.0 - crA) + uCrest * crA; a = crA + a * (1.0 - crA);
 
-  // Coast glow: a pale band that breathes slowly, with a thin brighter foam line right at the shore.
   float breathe = 0.85 + 0.15 * sin(t * 6.2832 * 1.7 + noise(p * 9.0) * 6.2832);
   float glow = (1.0 - sstep(0.0, 0.16 * breathe, dist)) * uGlowAmount;
   float line = (1.0 - sstep(0.0, 0.035 * breathe, dist)) * uFoamAmount;
-  float lap = 0.75 + 0.25 * noise(p * 40.0 + t * 14.0);   // the foam line flickers a little
+  float lap = 0.75 + 0.25 * noise(p * 40.0 + t * 14.0);
   float fA = clamp(glow + line * lap, 0.0, 0.8) * sea;
   col = col * (1.0 - fA) + uFoam * fA; a = fA + a * (1.0 - fA);
 
@@ -102,7 +99,6 @@ function Sea() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // If WebGL or the mask is unavailable, nothing is drawn and the map simply looks as drawn.
     const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false });
     const vs = gl && compile(gl, gl.VERTEX_SHADER, VERTEX);
     const fs = gl && compile(gl, gl.FRAGMENT_SHADER, FRAGMENT);
@@ -128,7 +124,7 @@ function Sea() {
     const image = new Image();
     image.onload = () => {
       if (disposed) return;
-      // The mask is data, not colour: keep the browser from converting or premultiplying it.
+      // The mask is data, not colour: no colour conversion or premultiplying.
       gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.activeTexture(gl.TEXTURE0);
@@ -163,10 +159,9 @@ function Sea() {
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       };
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        draw(t0); // one still frame
+        draw(t0);
         return;
       }
-      // 20fps (the swell is slow), taking turns with the clouds (gpu-ticker.ts).
       stop = onGpuFrame(3, draw);
     };
     image.src = MASK_URL;
@@ -194,5 +189,4 @@ function Sea() {
   );
 }
 
-// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
 export default memo(Sea);

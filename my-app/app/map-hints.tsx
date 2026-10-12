@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { GRAIN } from "./parchment";
 
 const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
-const RED = "var(--hint-red)"; // a theme variable, so SVG uses it through style, not attributes
+const RED = "var(--hint-red)";
 const SHAPE = "M2 9 C 70 1, 150 13, 236 6 C 290 2, 330 3, 358 8 L 356 92 C 300 99, 240 89, 170 95 C 100 100, 40 91, 4 96 Z";
 const ROTATE_MS = 4500;
 
@@ -37,7 +37,6 @@ export default function MapHints({ visible, done }: { visible: boolean; done: bo
 
   const show = ready && visible && !done && !dismissed;
 
-  // Rotate through the tips while the card is showing and not hovered or focused.
   useEffect(() => {
     if (!show || paused) return;
     const t = window.setInterval(() => setTip((n) => (n + 1) % 3), ROTATE_MS);
@@ -63,10 +62,8 @@ export default function MapHints({ visible, done }: { visible: boolean; done: bo
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      {/* Curled paper banner: gently wavy top and bottom edges */}
       <svg viewBox="0 0 360 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
         <defs>
-          {/* Warm paper, lighter in the middle and browned toward the edges, like the map */}
           <radialGradient id="hint-paper" cx="50%" cy="45%" r="75%">
             <stop offset="0" style={{ stopColor: "var(--hint-light)" }} />
             <stop offset="0.6" style={{ stopColor: "var(--hint-paper)" }} />
@@ -78,7 +75,6 @@ export default function MapHints({ visible, done }: { visible: boolean; done: bo
         </defs>
         <path d={SHAPE} fill="url(#hint-paper)" />
         <path d={SHAPE} fill="url(#hint-grain)" opacity="0.9" />
-        {/* Burnt rim along the paper's edge */}
         <path d={SHAPE} fill="none" style={{ stroke: "var(--hint-rim)" }} strokeOpacity="0.55" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
         <path
           d="M6 12 C 72 4, 150 16, 236 9 C 290 5, 328 6, 354 11 L 352 89 C 300 96, 240 86, 170 92 C 100 97, 42 88, 8 93 Z"
@@ -102,7 +98,6 @@ export default function MapHints({ visible, done }: { visible: boolean; done: bo
       </button>
 
       <div className="relative flex flex-col items-center px-6 pb-4 pt-6">
-        {/* The tip: every tip is stacked in place and crossfades, so the card never changes size */}
         <div role="note" aria-live="polite" className="grid w-full place-items-center pr-6">
           {tips.map((t, i) => (
             <div
@@ -124,7 +119,6 @@ export default function MapHints({ visible, done }: { visible: boolean; done: bo
           ))}
         </div>
 
-        {/* Pagination dots */}
         <div className="mt-2 flex items-center">
           {tips.map((t, i) => (
             <button
@@ -152,7 +146,6 @@ export default function MapHints({ visible, done }: { visible: boolean; done: bo
   );
 }
 
-// Small line icons in ink, with the part that matters in red (like the reference's mouse).
 function TipIcon({ icon }: { icon: Icon }) {
   const common = {
     viewBox: "0 0 28 40",
@@ -175,7 +168,6 @@ function TipIcon({ icon }: { icon: Icon }) {
       </svg>
     );
   }
-  // Touch: a fingertip with motion marks.
   return (
     <svg {...common}>
       <path d="M11 38 V20 a3 3 0 0 1 6 0 V26 l5 1.5 a3 3 0 0 1 2 3.4 L23 38" />

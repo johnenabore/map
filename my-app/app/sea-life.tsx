@@ -16,11 +16,11 @@ function SeaLife() {
     <div
       aria-hidden="true"
       className="pointer-events-none absolute inset-0"
-      // --u = one map pixel in layer px, used by the keyframes in globals.css
       style={{ transformStyle: "preserve-3d", ["--u" as string]: "calc(var(--mw) / 1679)" }}
     >
       {SEA_LIFE.map((s, i) => (
-        <div key={s.name} className="absolute" style={{ ...box(s.x, s.y, s.w, s.h), transform: "translateZ(1.5px)" /* under the sea tint (2px) */ }}>
+        // Under the sea tint (2px), so the paper patches take the water's colour.
+        <div key={s.name} className="absolute" style={{ ...box(s.x, s.y, s.w, s.h), transform: "translateZ(1.5px)" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`/sealife/p-${s.name}.webp`} alt="" draggable={false} className="absolute inset-0 h-full w-full" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -43,5 +43,4 @@ function SeaLife() {
   );
 }
 
-// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
 export default memo(SeaLife);

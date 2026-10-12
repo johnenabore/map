@@ -2,9 +2,9 @@ export interface Kingdom {
   id: string;
   name: string;
   subtitle: string;
-  quote: string; // the italic line in the discovery drawer
-  path: string; // SVG path of the kingdom's land, used for hover hit-testing
-  glow: [number, number, number, number]; // x, y, width, height of /kingdoms/glow-<id>.webp
+  quote: string;
+  path: string;
+  glow: [number, number, number, number];
   centre: [number, number];
   size: [number, number];
 }

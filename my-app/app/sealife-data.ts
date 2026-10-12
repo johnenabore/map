@@ -1,5 +1,3 @@
-// Generated: sea serpents and boats cut out of the map art (public/sealife/s-<name>.webp, with paper patches
-// p-<name>.webp that hide the originals). Boxes are in map px (the map is 1679x937).
 export interface SeaItem {
   name: string;
   kind: "serpent" | "ship";

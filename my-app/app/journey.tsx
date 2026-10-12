@@ -3,19 +3,17 @@ import { MARKERS } from "./region-labels";
 
 const MAP_W = 1679;
 const MAP_H = 937;
-const BOW = 0.18; // how far a leg bends sideways, as a share of its length
+const BOW = 0.18;
 const DRAW_DELAY = 700;
 const DRAW_MS = 1800;
 
 type Pt = { x: number; y: number };
 
-// A gentle curve between two markers, bent to one side; which side is fixed by the pair of kingdoms.
 function leg(a: Pt, b: Pt, side: number) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
   const c = { x: (a.x + b.x) / 2 - (dy / len) * len * BOW * side, y: (a.y + b.y) / 2 + (dx / len) * len * BOW * side };
-  // Arc length of the quadratic curve, by sampling.
   let total = 0;
   let prev = a;
   for (let i = 1; i <= 32; i++) {
@@ -50,10 +48,11 @@ function Journey({ stops, fresh }: { stops: string[]; fresh: boolean }) {
     >
       {legs.map(({ i, from, to, d, length }) => {
         const newest = i === last;
-        const draw = newest && fresh; // added this visit: draw it in
+        const draw = newest && fresh;
         const mask = `journey-${i}-${from}-${to}`;
         return (
           <g key={mask} opacity={newest ? 0.95 : 0.5} style={{ transition: "opacity 900ms ease" }}>
+            {/* Dotted strokes can't draw in with dashoffset, so a solid masked path reveals them */}
             {draw && (
               <mask id={mask} maskUnits="userSpaceOnUse" x={0} y={0} width={MAP_W} height={MAP_H}>
                 <path
@@ -71,7 +70,6 @@ function Journey({ stops, fresh }: { stops: string[]; fresh: boolean }) {
                 />
               </mask>
             )}
-            {/* a faint paper halo under the dots keeps them legible over the drawings */}
             <path
               d={d}
               fill="none"
@@ -97,5 +95,4 @@ function Journey({ stops, fresh }: { stops: string[]; fresh: boolean }) {
   );
 }
 
-// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
 export default memo(Journey);

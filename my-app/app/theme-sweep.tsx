@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LAYERS, ShaderLayer } from "./clouds";
-
 import { SWEEP_MS } from "./sweep-timing";
 
-export { SWEEP_MS };
-const MIDPOINT = 0.46; // share of the sweep when the clouds cover the most of the screen
+const MIDPOINT = 0.46;
 const EASE = "cubic-bezier(0.45, 0, 0.55, 1)";
 
 const BANKS = [
@@ -31,7 +29,6 @@ export default function ThemeSweep({
   const bankRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [cloudsOk, setCloudsOk] = useState(true);
   const noClouds = useCallback(() => setCloudsOk(false), []);
-  // Kept in refs so a parent re-render never restarts the sweep.
   const mid = useRef(onMidpoint);
   const done = useRef(onDone);
   useEffect(() => {
@@ -48,7 +45,7 @@ export default function ThemeSweep({
         fill: "both",
       }),
     );
-    // Timers rather than animation events, so the light still changes if the clouds can't render.
+    // Timers rather than animation events, so the theme still changes if the clouds can't render.
     const t1 = window.setTimeout(() => mid.current(), SWEEP_MS * MIDPOINT);
     const t2 = window.setTimeout(() => done.current(), SWEEP_MS + BANKS[BANKS.length - 1].delay);
     return () => {

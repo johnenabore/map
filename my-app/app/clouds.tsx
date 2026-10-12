@@ -41,7 +41,6 @@ export const LAYERS = {
     opacity: 0.55,
     shadow: 0,
   },
-  // Sparse wisps flying highest: they slide fastest when panning, for a sense of altitude.
   wisps: {
     z: 240,
     extent: 1.8,
@@ -54,7 +53,6 @@ export const LAYERS = {
     opacity: 0.35,
     shadow: 0,
   },
-  // The intro sky (intro.tsx): dense banks covering the whole screen, far to near.
   introFar: {
     z: 0,
     extent: 1,
@@ -91,7 +89,6 @@ export const LAYERS = {
     opacity: 0.6,
     shadow: 0,
   },
-  // The day/night change (theme-sweep.tsx): a dense bank that rolls across the screen.
   sweep: {
     z: 0,
     extent: 1,
@@ -113,7 +110,7 @@ const VERTEX = `
 attribute vec2 aPos;
 varying vec2 vUv;
 void main() {
-  vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5); // (0,0) = top-left of the map
+  vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5);
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
@@ -142,7 +139,6 @@ float noise(vec3 x) {
     f.z);
 }
 
-// Fractal noise; finer octaves are carried a little faster by the wind, so the cloud boils as it moves.
 float fbm(vec3 p, float wind, int octaves) {
   float sum = 0.0;
   float amp = 0.5;
@@ -158,17 +154,15 @@ float fbm(vec3 p, float wind, int octaves) {
 void main() {
   float t = uTime;
   float wind = t * uSpeed;
-  vec2 uv = (vUv - 0.5) * uExtent + 0.5; // canvases larger than the map keep their features on-map size
+  vec2 uv = (vUv - 0.5) * uExtent + 0.5;
   vec2 p = vec2(uv.x * uAspect * uStretch, uv.y) * uScale + uSeed;
   vec2 q = p - vec2(wind, 0.0);
 
-  // Domain warp: irregular, billowy edges.
   vec2 w = vec2(
     fbm(vec3(q * 0.8 + vec2(3.1, 1.7), t * 0.05), 0.0, 3),
     fbm(vec3(q * 0.8 + vec2(7.7, 9.2), t * 0.05 + 5.0), 0.0, 3));
   vec2 qw = q + (w - 0.5) * 1.5;
 
-  // Slow, large-scale "weather" groups the clouds into banks with clear gaps between them.
   vec2 uvA = vec2(uv.x * uAspect, uv.y);
   float bank = fbm(vec3(uvA * 1.1 + uSeed * 0.37 - vec2(wind / uScale * 0.35, 0.0), t * 0.02), 0.0, 3);
   float bankTerm = (bank - 0.5) * uBank;
@@ -177,7 +171,6 @@ void main() {
   float d = fbm(vec3(qw, tt), wind, 5) + bankTerm;
   float dens = smoothstep(uCover, uCover + 0.17, d);
 
-  // Lighting from the top-left: if there is more cloud toward the light we are in shade.
   float dl = fbm(vec3(qw + vec2(-0.16, -0.22), tt), wind, 5) + bankTerm;
   float densL = smoothstep(uCover, uCover + 0.17, dl);
   float thick = smoothstep(uCover + 0.08, uCover + 0.5, d);
@@ -185,11 +178,9 @@ void main() {
   float lit = clamp(0.74 - (densL - dens) * 2.8 - thick * 0.3 + rim * 0.35, 0.0, 1.0);
   vec3 col = mix(vec3(0.5, 0.45, 0.4), vec3(1.0, 0.99, 0.96), lit);
 
-  // Thin, translucent edges; denser cores.
   float alpha = dens * uOpacity * (0.5 + 0.5 * smoothstep(uCover + 0.03, uCover + 0.28, d));
   vec4 cloud = vec4(col * alpha, alpha);
 
-  // Cast shadow on the map, offset down-right, drawn under the cloud.
   vec4 shade = vec4(0.0);
   if (uShadow > 0.0) {
     float ds = fbm(vec3(qw + vec2(0.13, 0.2), tt), wind, 5) + bankTerm;
@@ -197,7 +188,6 @@ void main() {
     shade = vec4(vec3(0.23, 0.17, 0.1) * sa, sa);
   }
   vec4 col4 = cloud + shade * (1.0 - alpha);
-  // Night (uDim = 1): moonlit grey instead of bright white (less saturated and darker).
   float luma = dot(col4.rgb, vec3(0.2126, 0.7152, 0.0722));
   col4.rgb = mix(col4.rgb, mix(vec3(luma), col4.rgb, 0.6) * 0.42, uDim);
   gl_FragColor = col4;
@@ -216,14 +206,13 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   return shader;
 }
 
-// Where the clouds part during a kingdom click (map pixels); `open` animates the hole open or closed.
 export interface CloudPart {
   x: number;
   y: number;
   open: boolean;
 }
 
-// A soft hole in a cloud layer around the parted point, positioned in that canvas's own (larger) frame.
+// A soft hole around the parted point, positioned in this canvas's own (larger) frame.
 const partMask = (part: CloudPart | null | undefined, extent: number): React.CSSProperties => {
   if (!part) return {};
   const px = ((part.x / 1679 - 0.5) / extent + 0.5) * 100;
@@ -274,7 +263,6 @@ export function ShaderLayer({
     }
     gl.useProgram(program);
 
-    // One triangle that covers the whole canvas.
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
@@ -299,7 +287,6 @@ export function ShaderLayer({
     gl.viewport(0, 0, layer.res[0], layer.res[1]);
     gl.clearColor(0, 0, 0, 0);
 
-    // Start somewhere different each visit so the sky isn't always the same.
     const start = Math.random() * 200;
     const t0 = gpuNow();
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -315,6 +302,7 @@ export function ShaderLayer({
       dim = target > dim ? Math.min(target, dim + step) : Math.max(target, dim - step);
       if (still && drawn && dim === before) return;
       drawn = true;
+      // Night dimming happens in the shader; a CSS filter would re-filter the canvas every frame.
       gl.uniform1f(uDim, dim);
       gl.uniform1f(uTime, start + ((still ? t0 : now) - t0) / 1000);
       gl.clear(gl.COLOR_BUFFER_BIT);
@@ -359,14 +347,12 @@ export function ShaderLayer({
   );
 }
 
-// Fallback when WebGL isn't available: pre-made textures sliding on a CSS loop (see globals.css).
 const TEXTURES = {
   shadow: { src: "/clouds/cloud-shadow.webp", opacity: 0.22, z: 2, drift: 220, offset: "1.2%, 2%" },
   low: { src: "/clouds/cloud-low.webp", opacity: 0.55, z: 30, drift: 220 },
   high: { src: "/clouds/cloud-high.webp", opacity: 0.4, z: 90, drift: 140, sway: 90 },
 } as const;
 
-// One drifting texture layer. The strip is two tiles wide and slides by half its width, looping seamlessly.
 function TextureLayer({
   src,
   opacity,
@@ -422,7 +408,6 @@ function Clouds({ part = null }: { part?: CloudPart | null }) {
   }
   return (
     <>
-      {/* nightDim: the shader turns them moonlit grey at night */}
       <ShaderLayer layer={LAYERS.low} seed={11.3} onFail={fail} part={part} nightDim />
       <ShaderLayer layer={LAYERS.high} seed={47.9} onFail={fail} part={part} nightDim />
       <ShaderLayer layer={LAYERS.wisps} seed={83.1} onFail={fail} part={part} nightDim />
@@ -430,5 +415,4 @@ function Clouds({ part = null }: { part?: CloudPart | null }) {
   );
 }
 
-// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
 export default memo(Clouds);

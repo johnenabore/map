@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const SRC = "/sound/bgmusic.mp3";
 const VOLUME = 0.35;
 const MUTED_KEY = "protheka:muted";
-const LEAD_IN = 1.05; // seconds of silence at the start of the track, skipped the first time it plays
+const LEAD_IN = 1.05;
 const START_FADE_MS = 1200;
 
 export function useMusic() {
@@ -15,7 +15,6 @@ export function useMusic() {
   const fadeRaf = useRef(0);
   const [muted, setMuted] = useState(false);
 
-  // Ease the volume to `to` over `ms`; pause once it reaches silence.
   const fade = useCallback((to: number, ms: number) => {
     const a = audio.current;
     if (!a) return;
@@ -24,15 +23,13 @@ export function useMusic() {
     const t0 = performance.now();
     const step = (now: number) => {
       const k = Math.min(1, (now - t0) / ms);
-      a.volume = from + (to - from) * k * (2 - k); // ease-out: audible right away, settles gently
+      a.volume = from + (to - from) * k * (2 - k);
       if (k < 1) fadeRaf.current = requestAnimationFrame(step);
       else if (to === 0) a.pause();
     };
     fadeRaf.current = requestAnimationFrame(step);
   }, []);
 
-  // The audio element, created once. Making it early lets the browser download the track during the intro, so it can
-  // start the moment Explore is clicked instead of after a network wait.
   const element = useCallback(() => {
     if (!audio.current) {
       const a = new Audio(SRC);
@@ -51,23 +48,19 @@ export function useMusic() {
         .play()
         .then(() => fade(VOLUME, fadeMs))
         .catch(() => {
-          // blocked or unavailable: stay silent
         });
     },
     [element, fade],
   );
 
-  // Restore the muted choice from the last visit.
   useEffect(() => {
     let saved = false;
     try {
       saved = window.localStorage.getItem(MUTED_KEY) === "1";
     } catch {
-      // storage unavailable: not muted
     }
     mutedRef.current = saved;
-    // Start downloading on the visitor's first interaction (a mouse move or touch, usually on the way to Explore),
-    // or 5 s after the page has loaded: never during the first load, where it would compete with the map images.
+    // Download on first interaction (or 5 s after load) so the track never competes with the first load.
     let fallback = 0;
     const events = ["pointermove", "pointerdown", "keydown", "touchstart"] as const;
     const preload = () => {
@@ -92,7 +85,6 @@ export function useMusic() {
     };
   }, [element]);
 
-  // Pause while the tab is in the background; pick up again on return.
   useEffect(() => {
     const onVisibility = () => {
       if (!started.current || mutedRef.current) return;
@@ -120,7 +112,6 @@ export function useMusic() {
     try {
       window.localStorage.setItem(MUTED_KEY, next ? "1" : "0");
     } catch {
-      // not remembered
     }
     if (next) fade(0, 600);
     else {

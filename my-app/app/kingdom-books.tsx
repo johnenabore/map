@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { KINGDOMS } from "./kingdom-data";
 import { Arrow, INK, linkClass, PAPER_BG } from "./parchment";
 
-// Inside a kingdom: the page that will hold its books. For now it is a blank parchment page.
-// It fades in as the flight's fade-to-black clears; `leaving` plays the fade-out before the parent unmounts it.
 const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
 
 export default function KingdomBooks({

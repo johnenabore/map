@@ -6,8 +6,8 @@ import type { SitePage } from "./page-drawer";
 import { Magnifier } from "./magnifier";
 import { GRAIN } from "./parchment";
 
-const PX_PER_DEG = 3.67; // 45° between labels ≈ 165 px, like the reference
-const TICK_EVERY = 7.5; // a tick every 7.5°; every third one is a small caret mark
+const PX_PER_DEG = 3.67;
+const TICK_EVERY = 7.5;
 const SPAN = 315;
 const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
 
@@ -65,7 +65,6 @@ export default function MapNavbar({
         pointerEvents: visible ? "auto" : "none",
       }}
     >
-      {/* Continue reading the last book */}
       <button
         type="button"
         onClick={onContinue}
@@ -82,7 +81,6 @@ export default function MapNavbar({
 
       <Divider />
 
-      {/* The degree ruler, with the compass stamp over the bar's top edge */}
       <div className="relative min-w-0 flex-1">
         <Ruler narrow={narrow} />
         <CompassMenu narrow={narrow} hidden={!visible} onOpenPage={onOpenPage} />
@@ -90,7 +88,6 @@ export default function MapNavbar({
 
       <Divider />
 
-      {/* Theme: a title block like the reference's PROGRESS, and a small icon cell like its sound button */}
       <button
         type="button"
         onClick={onToggleTheme}
@@ -107,7 +104,6 @@ export default function MapNavbar({
       <span className="hidden sm:contents">
         <Divider />
       </span>
-      {/* Search the map (map-search.tsx) */}
       <button
         type="button"
         data-search-toggle
@@ -127,7 +123,6 @@ export default function MapNavbar({
         aria-label={night ? "Switch to day" : "Switch to night"}
         className="flex w-12 shrink-0 items-center justify-center transition-opacity hover:opacity-70 focus:outline-none focus-visible:underline"
       >
-        {/* The sun sets and the moon rises (and back) */}
         <span className="relative h-5 w-5 overflow-hidden">
           <span
             className="absolute inset-0"
@@ -152,7 +147,6 @@ export default function MapNavbar({
         </span>
       </button>
       <Divider />
-      {/* Background music on/off */}
       <button
         type="button"
         onClick={onToggleSound}
@@ -166,7 +160,6 @@ export default function MapNavbar({
   );
 }
 
-// A speaker: sound waves while the music plays, a small cross when muted.
 function Speaker({ muted }: { muted: boolean }) {
   const swap = (on: boolean): React.CSSProperties => ({
     opacity: on ? 1 : 0,
@@ -259,9 +252,7 @@ function Ruler({ narrow }: { narrow: boolean }) {
   );
 }
 
-// The compass on a small square paper stamp with ragged edges, like the reference. The rose turns with the map.
 const STAMP_EDGE = (() => {
-  // Deterministic wobbly square, 4..48 on a 52 box.
   let seed = 5;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const pts: string[] = [];
@@ -281,7 +272,6 @@ const STAMP_EDGE = (() => {
   return `M${pts.join(" L")} Z`;
 })();
 
-// The pages, fanned out above the compass like compass points.
 const PAGES = [
   { page: "library", label: "Library", icon: "book", x: -92, y: -58 },
   { page: "home", label: "Home", icon: "home", x: 0, y: -104, current: true },
@@ -303,14 +293,13 @@ function CompassMenu({
   const toggleRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const shown = open && !hidden;
-  const k = narrow ? 0.8 : 1; // a tighter fan on phones
+  const k = narrow ? 0.8 : 1;
 
   const close = (refocus: boolean) => {
     setOpen(false);
     if (refocus) toggleRef.current?.focus();
   };
 
-  // Close on Esc or a click anywhere else; move between the points with the arrow keys.
   useEffect(() => {
     if (!shown) return;
     itemRefs.current[1]?.focus({ preventScroll: true });
@@ -336,7 +325,6 @@ function CompassMenu({
 
   return (
     <div ref={rootRef} className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[60%]">
-      {/* Faint dotted arc through the three points */}
       <svg
         viewBox="-110 -120 220 90"
         aria-hidden="true"
@@ -368,7 +356,6 @@ function CompassMenu({
               aria-current={current ? "page" : undefined}
               onClick={() => {
                 close(false);
-                // Home is where you are (the map); the other pages open in the parchment drawer.
                 if (p.page !== "home") onOpenPage(p.page);
               }}
               className="group absolute left-1/2 top-[34px] flex flex-col items-center gap-1 focus:outline-none"
@@ -481,13 +468,12 @@ function Stamp({ open }: { open: boolean }) {
       >
         <g
           style={{
-            transform: "rotate(var(--map-turn, 0deg))",
+            transform: "rotate(calc(var(--map-turn, 0deg) - var(--map-heading, 0) * 1deg))",
             transformOrigin: "26px 26px",
             transition: "transform var(--map-ease, 0ms)",
           }}
         >
           <circle cx="26" cy="26" r="15" fill="none" stroke="currentColor" strokeWidth="0.9" opacity="0.75" />
-          {/* eight-point star: dark main points, lighter diagonals */}
           <path d="M26 5 L29.5 22.5 L47 26 L29.5 29.5 L26 47 L22.5 29.5 L5 26 L22.5 22.5 Z" fill="currentColor" />
           <path
             d="M12.5 12.5 L25 24.5 M39.5 12.5 L27.5 25 M12.5 39.5 L25 27.5 M39.5 39.5 L27.5 27.5"

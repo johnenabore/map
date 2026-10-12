@@ -13,12 +13,11 @@ const fell = IM_Fell_English_SC({
   weight: "400",
 });
 
-// The discovery drawer: serif caps for headings and links, a light italic sans for the quote.
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
   subsets: ["latin"],
   weight: ["500", "600"],
-  preload: false, // not on the first screen (drawers, navbar ruler): fetched when first used
+  preload: false,
 });
 
 const openSans = Open_Sans({
@@ -26,7 +25,7 @@ const openSans = Open_Sans({
   subsets: ["latin"],
   weight: "400",
   style: "italic",
-  preload: false, // only the drawer's quote
+  preload: false,
 });
 
 const cinzel = Cinzel({

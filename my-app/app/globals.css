@@ -128,8 +128,6 @@
     @apply font-sans;
   }
 }
-/* Drifting clouds over the map (see Clouds in map-viewer.tsx). The strip is two tiles wide,
-   so sliding it by half its width loops seamlessly. */
 @keyframes cloud-drift {
   from {
     transform: translateX(0);
@@ -155,7 +153,6 @@
   }
 }
 
-/* Camera values shared with the floating region labels, registered so they can transition with the map. */
 @property --tilt {
   syntax: "<angle>";
   inherits: true;
@@ -168,7 +165,6 @@
   initial-value: 0deg;
 }
 
-/* The hovered kingdom's glow breathes gently (see kingdoms.tsx). */
 @keyframes kingdom-breathe {
   0%,
   100% {
@@ -179,7 +175,6 @@
   }
 }
 
-/* Slow pan/zoom of the discovery drawer's picture (kingdom-drawer.tsx). */
 @keyframes slow-drift {
   from {
     transform: scale(1.04) translate(0, 0);
@@ -189,7 +184,6 @@
   }
 }
 
-/* Clouds part around a kingdom during the click flight (clouds.tsx). */
 @property --part {
   syntax: "<percentage>";
   inherits: true;
@@ -202,7 +196,6 @@
   }
 }
 
-/* The page title fades out during the flight and on the books page (map-viewer.tsx sets data-overlay). */
 .site-title {
   transition: opacity 500ms ease;
 }
@@ -211,9 +204,6 @@ body[data-overlay] .site-title {
   opacity: 0;
 }
 
-/* Theme. Day is parchment; night is dark parchment with pale ink. map-viewer.tsx sets data-theme="night" on
-   <html>. --ui-*: navbar, search, compass fan. --hint-*: the hints card. --map-*: title, level control, trail and the
-   area around the map. --label-*: region names on the map. --paper-*: the drawers and the books page. */
 :root {
   --ui-paper: #d9d3c6;
   --ui-ink: #2b2620;
@@ -266,13 +256,11 @@ body[data-overlay] .site-title {
   --paper-frame-inner: #5c5245;
 }
 
-/* Title and level control: ink with a halo, both following the theme. */
 .site-title {
   color: var(--map-ink);
   filter: drop-shadow(0 0 6px var(--map-glow));
 }
 
-/* Location markers breathe gently (region-labels.tsx). */
 @keyframes marker-breathe {
   0%,
   100% {
@@ -291,7 +279,6 @@ body[data-overlay] .site-title {
   }
 }
 
-/* Sea life and birds (sea-life.tsx, birds.tsx). --u is one map pixel in layer px. */
 @keyframes serpent-swim {
   0% {
     transform: translate(calc(var(--u) * -4), calc(var(--u) * 1.2)) rotate(-1.5deg);
@@ -329,8 +316,6 @@ body[data-overlay] .site-title {
   }
 }
 
-/* Castle window lights at night (castle-lights.tsx): a candle-like flicker of the glow (opacity only, so it stays on
-   the compositor). */
 @keyframes window-flicker {
   0% {
     opacity: 1;
@@ -352,7 +337,6 @@ body[data-overlay] .site-title {
   }
 }
 
-/* The journey trail (journey.tsx): the newest leg's mask path draws from start to end. */
 @keyframes trail-draw {
   to {
     stroke-dashoffset: 0;
@@ -366,7 +350,6 @@ body[data-overlay] .site-title {
   }
 }
 
-/* Night: the fallback cloud textures turn to moonlit grey (the WebGL clouds dim in their shader, clouds.tsx). */
 .map-cloud {
   transition: filter 900ms ease;
 }

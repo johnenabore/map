@@ -1,5 +1,3 @@
-// The search icon, shared by the navbar's search cell and the search panel (kept apart so the navbar doesn't load
-// the panel).
 export function Magnifier() {
   return (
     <svg

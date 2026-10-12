@@ -4,9 +4,9 @@ import { memo, useEffect, useRef, useState } from "react";
 
 const MAP_W = 1679;
 const MAP_H = 937;
-const ALTITUDE = 160; // px above the map, between the low (50) and high (300) clouds
+const ALTITUDE = 160;
 const FLIGHT_MS = 14000;
-const BIRD = 26; // wingspan in map px
+const BIRD = 26;
 const FORMATION: [number, number][] = [
   [0, 0],
   [-38, -24],
@@ -48,7 +48,6 @@ function Birds({ active, night }: { active: boolean; night: boolean }) {
     nightRef.current = night;
   }, [active, night]);
 
-  // Schedule flocks: the first one soon after arriving, then every 18–35 s while the map is in view.
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let timer = 0;
@@ -77,6 +76,7 @@ function Flock({ flight, night, onDone }: { flight: Flight; night: boolean; onDo
   }, [onDone]);
 
   useEffect(() => {
+    // Animate transform in measured px so the flight stays on the compositor (left/top forced a layout per frame).
     const w = rootRef.current?.offsetWidth ?? 0;
     const h = rootRef.current?.offsetHeight ?? 0;
     const at = ([x, y]: [number, number]) => ({ transform: `translate(${(x / MAP_W) * w}px, ${(y / MAP_H) * h}px)` });
@@ -150,5 +150,4 @@ function Flock({ flight, night, onDone }: { flight: Flight; night: boolean; onDo
   );
 }
 
-// Memoized: the map re-renders on every hover and drawer change; this only needs to when its own props change.
 export default memo(Birds);

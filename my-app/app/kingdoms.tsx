@@ -4,7 +4,6 @@ import { KINGDOMS } from "./kingdom-data";
 
 const MAP_W = 1679;
 const MAP_H = 937;
-// Light up briskly, let go slowly; the warm light also blooms outward a little as it comes on.
 const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
 const fade = (on: boolean) => (on ? `opacity 450ms ${EASE}, transform 900ms ${EASE}` : "opacity 900ms ease, transform 900ms ease");
 
@@ -26,7 +25,6 @@ export default function Kingdoms({
     <>
       {KINGDOMS.map(({ id, glow, centre, size }) => {
         const on = hovered === id;
-        // The warm light reaches well past the coast, like a lamp held behind the kingdom.
         const lw = size[0] * 1.6 + 120;
         const lh = size[1] * 1.6 + 120;
         return (
@@ -58,7 +56,6 @@ export default function Kingdoms({
         );
       })}
 
-      {/* Hit shapes: transparent, but they catch the mouse over each kingdom's land */}
       <svg
         viewBox={`0 0 ${MAP_W} ${MAP_H}`}
         aria-hidden="true"

@@ -23,8 +23,6 @@ import SeaLife from "./sea-life";
 import Terrain, { type CameraMove } from "./terrain";
 import map from "../public/new-map.png";
 
-// Loaded on first use (a click, the compass, the search or the theme toggle), so the first visit downloads and runs
-// less JavaScript.
 const KingdomDrawer = dynamic(() => import("./kingdom-drawer"));
 const KingdomBooks = dynamic(() => import("./kingdom-books"));
 const PageDrawer = dynamic(() => import("./page-drawer"));
@@ -33,7 +31,6 @@ const ThemeSweep = dynamic(() => import("./theme-sweep"));
 
 type Level = 1 | 2 | 3;
 
-// scale: 1 = the map exactly covers the window. tilt/rot in degrees. haze: top fade 0-1.
 const LEVELS: Record<Level, { scale: number; tilt: number; rot: number; haze: number }> = {
   1: { scale: 1, tilt: 0, rot: 0, haze: 0 },
   2: { scale: 1.5, tilt: 16, rot: 0, haze: 0.3 },
@@ -42,37 +39,29 @@ const LEVELS: Record<Level, { scale: number; tilt: number; rot: number; haze: nu
 
 const ASPECT = 1679 / 937;
 const PERSPECTIVE = 1200;
-const PARCHMENT = "var(--map-bg)"; // around the map and in the haze; darkens at night (globals.css)
-const RUBBER = 0.35; // share of the drag that still moves the map past its limit
-const RUBBER_MAX = 90; // screen px the map can be pulled past its limit
+const PARCHMENT = "var(--map-bg)";
+const RUBBER = 0.35;
+const RUBBER_MAX = 90;
 const EASE = "800ms cubic-bezier(0.22, 0.8, 0.3, 1)";
-// --tilt/--rot (the camera's angles) are set on the label sheet only, with --cam-ease: each label eases its own
-// transform to the new counter-rotation. With only transform (and opacity) transitions in play, a camera move can
-// run entirely on the browser's compositor, which keeps it smooth on phones.
 const TRANSITION = `transform ${EASE}`;
-// Hovering a kingdom eases the camera in a little toward it, slower and softer than a level change.
 const HOVER_EASE = "1400ms cubic-bezier(0.25, 0.1, 0.25, 1)";
 const HOVER_TRANSITION = `transform ${HOVER_EASE}`;
-// The intro starts at "altitude" (the map a little farther away) and dives down to the normal view.
 const INTRO_ALTITUDE = 0.93;
 const DIVE_EASE = `${DIVE_MS - 100}ms cubic-bezier(0.45, 0, 0.2, 1)`;
 const DIVE_TRANSITION = `transform ${DIVE_EASE}`;
 const HOVER_ZOOM = 1.06;
-const HOVER_PULL = 0.12; // share of the way the camera moves toward the hovered kingdom
-const HOVER_IN_MS = 80; // pause before a kingdom lights up
-const HOVER_OUT_MS = 180; // grace before it lets go
-// Entering a kingdom flies the camera to it before its books page opens; going back eases home softly.
+const HOVER_PULL = 0.12;
+const HOVER_IN_MS = 80;
+const HOVER_OUT_MS = 180;
 const FLY_EASE = "1600ms cubic-bezier(0.65, 0, 0.35, 1)";
 const FLY_TRANSITION = `transform ${FLY_EASE}`;
 const FLY_TILT = 34;
 const FLY_ROT = -4;
-const CLICK_SLOP = 6; // px: a press that moves less than this is a click, not a drag
-// While the discovery drawer is open, the camera frames the kingdom in the part of the screen the drawer leaves free.
-// Like the reference, the map leans back and turns in-plane beside the paper.
+const CLICK_SLOP = 6;
 const FOCUS_TILT = 38;
 const FOCUS_ROT = -12;
 const FOCUS_SCALE = 1.7;
-const DRAWER_BREAKPOINT = 900; // px: below this the drawer is a bottom sheet
+const DRAWER_BREAKPOINT = 900;
 
 type Phase = "intro" | "map" | "drawer" | "page" | "flying" | "books" | "returning";
 type Flash = "none" | "flare" | "black" | "clearing";
@@ -80,8 +69,8 @@ type Flash = "none" | "flare" | "black" | "clearing";
 const LAST_BOOK_KEY = "protheka:lastBook";
 const THEME_KEY = "protheka:theme";
 const JOURNEY_KEY = "protheka:journey";
-const JOURNEY_MAX = 16; // kingdoms kept on the trail (15 legs)
-const PING_MS = 3200; // how long a kingdom found by search stays highlighted
+const JOURNEY_MAX = 16;
+const PING_MS = 3200;
 const store = {
   get(key: string) {
     try {
@@ -94,18 +83,16 @@ const store = {
     try {
       window.localStorage.setItem(key, value);
     } catch {
-      // storage unavailable (private mode, blocked): the setting just isn't remembered
     }
   },
 };
 
-const STEP_COOLDOWN = 900; // ms: one wheel flick or pinch = one level step
+const STEP_COOLDOWN = 900;
 const PINCH_IN = 1.2;
 const PINCH_OUT = 0.83;
 
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
-// Looping decorations paused during camera moves on phones (see render).
 const DECOR = new Set(["window-flicker", "marker-breathe", "serpent-swim", "ship-rock", "bird-flap"]);
 
 export default function MapViewer() {
@@ -124,12 +111,8 @@ export default function MapViewer() {
   const lastStep = useRef(0);
   const [level, setLevel] = useState<Level>(1);
   const [hovered, setHovered] = useState<string | null>(null);
-  // Hover offset (map-layer px), fixed when the hover starts so dragging still moves the map 1:1.
   const hover = useRef<{ id: string; dx: number; dy: number } | null>(null);
-  // The hover ease moves the map under a still pointer, which makes the browser report enter/leave events.
-  // Only accept a hover change once the pointer has really moved since the last one, so it can't loop.
   const movedSinceHover = useRef(true);
-  // Click flight: the camera pose to fly to (overrides the level while set), the phase, and pending timers.
   const flight = useRef<{ id: string; scale: number; tilt: number; rot: number; x: number; y: number } | null>(null);
   const phaseRef = useRef<Phase>("intro");
   const timers = useRef<number[]>([]);
@@ -141,36 +124,26 @@ export default function MapViewer() {
   const [flash, setFlash] = useState<Flash>("none");
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // The site's pages (Library, More), opened from the compass fan in a parchment drawer over the map.
   const [sitePage, setSitePage] = useState<SitePage | null>(null);
   const [pageOpen, setPageOpen] = useState(false);
-  // For the hints bar: has the user moved the map yet, and opened a kingdom?
   const [explored, setExplored] = useState(false);
   const [discovered, setDiscovered] = useState(false);
-  // The navbar: the last book opened (to continue reading), and the day/night theme.
   const [lastBook, setLastBook] = useState<string | null>(null);
-  const [night, setNight] = useState(true); // dark by default; a visitor's day choice is restored below
-  // The 3D terrain (three.js) replaces the flat map image once it is ready; the image stays as the fallback.
+  const [night, setNight] = useState(true);
   const [terrainOk, setTerrainOk] = useState(false);
-  // Day/night change: the cloud sweep playing (and toward which theme), and the warm dusk/dawn veil it pulses.
   const [sweep, setSweep] = useState<"night" | "day" | null>(null);
   const sweeping = useRef(false);
   const horizonRef = useRef<HTMLDivElement>(null);
-  // The journey trail: kingdoms in the order discovered; `journeyFresh` once one was added during this visit.
   const [journey, setJourney] = useState<string[]>([]);
   const [journeyFresh, setJourneyFresh] = useState(false);
-  // Search panel (navbar magnifier or the / key); a kingdom found by search is highlighted for a moment.
   const [searchOpen, setSearchOpen] = useState(false);
   const pingTimer = useRef(0);
-  // Background music: starts with the Explore click (browsers need a user gesture), muted from the navbar.
   const music = useMusic();
-  // Set once the first load has settled: the map's WebGL clouds and sea start then, not while the page is loading
-  // (they are under the intro's clouds at first anyway).
   const [idle, setIdle] = useState(false);
   useEffect(() => {
+    // Start the WebGL sea and clouds and prefetch on-demand chunks once idle, off the first-load path.
     const go = () => {
       setIdle(true);
-      // Fetch the on-demand pieces in the background now, so the first kingdom tap or drawer doesn't wait for them.
       void import("./kingdom-drawer");
       void import("./kingdom-books");
       void import("./page-drawer");
@@ -184,12 +157,10 @@ export default function MapViewer() {
     const t = window.setTimeout(go, 800);
     return () => clearTimeout(t);
   }, []);
-  // The search panel is only built the first time it is opened.
   const [searchUsed, setSearchUsed] = useState(false);
+  // Mount the search panel on first open (state derived during render, not in an effect).
   if (searchOpen && !searchUsed) setSearchUsed(true);
-  // The camera values last written to the page (see render), so unchanged ones are not written again.
   const written = useRef<Record<string, string>>({});
-  // A touch device (phone, tablet): lighter rendering while the camera moves.
   const coarse = useRef(false);
   const movingTimer = useRef(0);
   const pausedDecor = useRef(new Set<Animation>());
@@ -197,6 +168,7 @@ export default function MapViewer() {
     coarse.current = window.matchMedia("(pointer: coarse)").matches;
   }, []);
 
+  // Clamps the pan to what the tilted, turned view can show, then writes the layer transform.
   const render = useCallback((x: number, y: number, animate: boolean | "hover" | "fly" | "dive", soft = false) => {
     const layer = layerRef.current;
     if (!layer) return;
@@ -211,11 +183,9 @@ export default function MapViewer() {
     const baseW = Math.max(vw, vh * ASPECT);
     const baseH = baseW / ASPECT;
 
-    // Part of the map plane that is visible: tilt stretches it vertically, rotation widens it.
     const visH = vh / Math.cos(rad(tilt));
     const sin = Math.abs(Math.sin(rad(rot)));
     const cos = Math.abs(Math.cos(rad(rot)));
-    // Perspective makes the far edge of the screen show less map width than the middle.
     const perspective = 1 + 0.7 * Math.sin(rad(tilt));
     const extentW = ((vw * cos + visH * sin) * perspective) / scale;
     const extentH = ((visH * cos + vw * sin) * (1 + 0.25 * Math.sin(rad(tilt)))) / scale;
@@ -233,13 +203,11 @@ export default function MapViewer() {
     let shownX = h ? Math.min(maxX, Math.max(-maxX, offset.current.x + h.dx)) : offset.current.x;
     let shownY = h ? Math.min(maxY, Math.max(-maxY, offset.current.y + h.dy)) : offset.current.y;
     if (f) {
-      // A clicked (or entered) kingdom is always framed where it was aimed, even near the map's edge: clamping here
-      // would stop the camera short and leave edge kingdoms hidden under the drawer.
+      // No edge clamp for a focused kingdom, or edge kingdoms end up under the drawer.
       shownX = f.x;
       shownY = f.y;
     }
-    // Only write what changed: these variables are inherited by everything in the map, so each write makes the
-    // browser restyle it all. While dragging, only the transform below changes.
+    // Only write changed values: these vars are inherited by the whole map, so each write restyles it.
     const css = written.current;
     const put = (el: HTMLElement, name: string, value: string) => {
       const key = `${name}@${el.id || "layer"}`;
@@ -265,16 +233,14 @@ export default function MapViewer() {
               ? TRANSITION
               : "none",
     );
+    // Angles go on the label sheet only; labels ease their own transform, which runs on the compositor.
     const sheet = document.getElementById("label-sheet");
     if (sheet) {
       put(sheet, "--cam-ease", animate ? ease : "0ms");
       put(sheet, "--tilt", `${tilt}deg`);
       put(sheet, "--rot", `${rot}deg`);
     }
-    // On phones, while the camera eases: pause the cloud and sea redraws (GPU) and the small looping decorations
-    // (flickering windows, breathing markers, sea life, wing beats). The terrain redraws on the main thread during a
-    // move, and every main-thread frame also restyles each running animation, which a phone feels. They pick up again
-    // when the move ends.
+    // Phones: pause WebGL redraws and looping decorations during a move, since main-thread frames restyle them.
     if (animate && animate !== "dive" && coarse.current) {
       const ms = Number.parseInt(ease, 10);
       holdGpuFrames(ms);
@@ -310,6 +276,7 @@ export default function MapViewer() {
     }
     const pose = `rotateX(${tilt}deg) rotateZ(${rot}deg) scale(${scale}) translate(${shownX}px, ${shownY}px)`;
     layer.style.transform = `translate(-50%, -50%) ${pose}`;
+    // Wakes the terrain for the move; immediate moves hand over the exact pose so it needn't read styles.
     layer.dispatchEvent(
       new CustomEvent<CameraMove>("camera", {
         detail: {
@@ -322,19 +289,18 @@ export default function MapViewer() {
     );
   }, []);
 
-  // Hover a kingdom (or null): glow and label are driven by `hovered`; the camera eases in toward it.
   const changeHover = useCallback(
     (id: string | null) => {
-      if (phaseRef.current !== "map") return; // the click sequence owns the camera
-      if (drag.current || pointers.current.size > 1) return; // no hover changes mid-drag or mid-pinch
+      if (phaseRef.current !== "map") return;
+      if (drag.current || pointers.current.size > 1) return;
       if ((hover.current?.id ?? null) === id) return;
+      // The hover ease moves the map under a still pointer; ignore enter/leave until the pointer really moves.
       if (!movedSinceHover.current) return;
       movedSinceHover.current = false;
       const k = id ? KINGDOMS.find((q) => q.id === id) : null;
       if (k) {
         const baseW = Math.max(window.innerWidth, window.innerHeight * ASPECT);
         const baseH = baseW / ASPECT;
-        // Offset that would centre the kingdom; move a small share of the way there.
         const tx = -(k.centre[0] / 1679 - 0.5) * baseW;
         const ty = -(k.centre[1] / 937 - 0.5) * baseH;
         hover.current = {
@@ -351,6 +317,7 @@ export default function MapViewer() {
     [render],
   );
 
+  // Hover intent: a short delay to light up and a grace to let go, so crossing straits doesn't flicker.
   const hoverTimer = useRef(0);
   const requestHover = useCallback(
     (id: string | null) => {
@@ -374,7 +341,6 @@ export default function MapViewer() {
     store.set(LAST_BOOK_KEY, id);
   }, []);
 
-  // Restore the last book, theme and journey from the previous visit.
   useEffect(() => {
     const book = store.get(LAST_BOOK_KEY);
     const theme = store.get(THEME_KEY);
@@ -383,7 +349,6 @@ export default function MapViewer() {
       const saved: unknown = JSON.parse(store.get(JOURNEY_KEY) ?? "[]");
       if (Array.isArray(saved)) trail = saved.filter((id) => KINGDOMS.some((k) => k.id === id)).slice(-JOURNEY_MAX);
     } catch {
-      // a damaged saved trail just starts over
     }
     const t = window.setTimeout(() => {
       if (book && KINGDOMS.some((k) => k.id === book)) setLastBook(book);
@@ -404,14 +369,13 @@ export default function MapViewer() {
   const goPhase = useCallback((p: Phase) => {
     phaseRef.current = p;
     setPhase(p);
-    if (p !== "map") setSearchOpen(false); // the navbar (and its search) steps aside
+    if (p !== "map") setSearchOpen(false);
   }, []);
   useEffect(() => {
     const pending = timers.current;
     return () => pending.forEach(clearTimeout);
   }, []);
 
-  // Enter a kingdom: fly the camera to it while the clouds part, flare and fade, then open its books page.
   const openKingdom = useCallback(
     (id: string) => {
       const k = KINGDOMS.find((q) => q.id === id);
@@ -458,7 +422,6 @@ export default function MapViewer() {
     [goPhase, later, render, rememberBook],
   );
 
-  // Back to Map from the books page: it fades out over the zoomed-in kingdom, then the camera eases home.
   const closeBooks = useCallback(() => {
     if (phaseRef.current !== "books") return;
     goPhase("returning");
@@ -479,7 +442,6 @@ export default function MapViewer() {
     });
   }, [goPhase, later, render]);
 
-  // First click on a kingdom: frame it beside the discovery drawer (or above the bottom sheet on narrow screens).
   const focusKingdom = useCallback(
     (id: string) => {
       const k = KINGDOMS.find((q) => q.id === id);
@@ -491,8 +453,7 @@ export default function MapViewer() {
       const lv = LEVELS[levelRef.current];
       const scale = Math.max(FOCUS_SCALE, lv.scale);
       const wide = vw >= DRAWER_BREAKPOINT;
-      // Offset that centres the kingdom, then shift it into the strip left of the paper (16% across, 52% down)
-      // or above the bottom sheet (20% down). Screen shift -> map plane: undo the tilt, the turn and the zoom.
+      // Screen offset of the framing spot, converted to the map plane by undoing tilt, turn and zoom.
       const sx = wide ? (0.16 - 0.5) * vw : 0;
       const sy = ((wide ? 0.02 : 0.2 - 0.5) * vh) / Math.cos(rad(FOCUS_TILT));
       const c = Math.cos(rad(FOCUS_ROT));
@@ -521,7 +482,6 @@ export default function MapViewer() {
       }
       goPhase("drawer");
       setDiscovered(true);
-      // Extend the journey trail from the last kingdom discovered to this one.
       setJourney((j) => {
         if (j[j.length - 1] === id) return j;
         const next = [...j, id].slice(-JOURNEY_MAX);
@@ -536,7 +496,6 @@ export default function MapViewer() {
     [drawerId, focusKingdom, goPhase],
   );
 
-  // Back to Map: the drawer slides away and the camera eases back to where the user left it.
   const closeDrawer = useCallback(() => {
     if (phaseRef.current !== "drawer") return;
     setDrawerOpen(false);
@@ -550,29 +509,26 @@ export default function MapViewer() {
     });
   }, [goPhase, later, render]);
 
-  // Enter Kingdom: the drawer slides away, then the cinematic flight into the kingdom begins.
   const enterFromDrawer = useCallback(() => {
     const id = drawerId;
     if (!id || phaseRef.current !== "drawer") return;
     setDrawerOpen(false);
     later(350, () => openKingdom(id));
-    later(900, () => setDrawerId(null)); // after the paper has slid out
+    later(900, () => setDrawerId(null));
   }, [drawerId, later, openKingdom]);
 
-  // The page title steps aside while the flight or the books page is up (see .site-title in globals.css).
   useEffect(() => {
-    // The drawer keeps the title (it sits over the paper like the reference's logo).
-    document.body.toggleAttribute("data-overlay", phase !== "map" && phase !== "drawer"); // the page drawer has its own tabs up there
+    document.body.toggleAttribute("data-overlay", phase !== "map" && phase !== "drawer");
   }, [phase]);
 
-  // Explore: dive from altitude down to the map, then hand over to the normal map controls.
   const startMusic = music.start;
   const explore = useCallback(() => {
     if (phaseRef.current !== "intro") return;
+    // Must run inside the click: browsers only allow audio after a user gesture.
     startMusic();
     setDiving(true);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    phaseRef.current = "returning"; // altitude off for the next render; input stays locked until done
+    phaseRef.current = "returning";
     render(offset.current.x, offset.current.y, reduced ? false : "dive");
     later(reduced ? 450 : DIVE_MS, () => {
       setDiving(false);
@@ -600,8 +556,6 @@ export default function MapViewer() {
     });
   }, [goPhase, later]);
 
-  // Day/night: clouds roll across the screen and the light changes while they cover the map, passing through a
-  // warm dusk (or dawn) glow. With reduced motion the light simply crossfades.
   const toggleTheme = useCallback(() => {
     if (sweeping.current) return;
     const to = night ? "day" : "night";
@@ -623,7 +577,6 @@ export default function MapViewer() {
     setSweep(null);
   }, []);
 
-  // Search: fly the camera to the kingdom (at level II or closer), then light it up for a moment.
   const flyTo = useCallback(
     (id: string) => {
       const k = KINGDOMS.find((q) => q.id === id);
@@ -641,7 +594,6 @@ export default function MapViewer() {
       setHovered(id);
       clearTimeout(pingTimer.current);
       pingTimer.current = window.setTimeout(() => {
-        // Unless the user has since hovered something else, let the highlight go.
         if (!hover.current && phaseRef.current === "map") setHovered((h) => (h === id ? null : h));
       }, PING_MS);
     },
@@ -661,7 +613,6 @@ export default function MapViewer() {
     [render],
   );
 
-  // Zooming moves between levels I and II; level III is only opened from the control or the 3 key.
   const zoomStep = useCallback(
     (dir: 1 | -1) => {
       const now = performance.now();
@@ -683,12 +634,11 @@ export default function MapViewer() {
       if (Math.abs(e.deltaY) < 4) return;
       zoomStep(e.deltaY < 0 ? 1 : -1);
     };
-    // React's onWheel is passive, so it can't stop the page from zooming/scrolling.
     viewer?.addEventListener("wheel", onWheel, { passive: false });
     const onResize = () => render(offset.current.x, offset.current.y, false);
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if ((e.target as Element | null)?.closest?.("input, textarea, [contenteditable='true']")) return; // typing
+      if ((e.target as Element | null)?.closest?.("input, textarea, [contenteditable='true']")) return;
       if (e.key === "/" && phaseRef.current === "map") {
         e.preventDefault();
         setSearchOpen(true);
@@ -710,7 +660,6 @@ export default function MapViewer() {
 
   const endPointer = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
-    // A press that barely moved is a click: if it landed on a kingdom, open its discovery drawer.
     const d0 = drag.current;
     if (d0 && e.type === "pointerup" && Math.hypot(e.clientX - d0.pointerX, e.clientY - d0.pointerY) < CLICK_SLOP) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -723,16 +672,13 @@ export default function MapViewer() {
       }
     }
     if (phaseRef.current !== "map") {
-      // With the drawer open the map is only clickable, not draggable.
       drag.current = null;
       return;
     }
-    // Spring back if the map was pulled past its limit.
     const wasDragging = drag.current !== null;
     if (wasDragging) render(offset.current.x, offset.current.y, true);
     drag.current = null;
     if (pointers.current.size < 2) pinchStart.current = null;
-    // Hover was frozen during the drag: pick up whatever kingdom is now under the pointer.
     if (wasDragging && e.pointerType !== "touch") {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       hoverNow(el?.closest("[data-kingdom]")?.getAttribute("data-kingdom") ?? null);
@@ -746,12 +692,10 @@ export default function MapViewer() {
         className="relative h-dvh w-full cursor-grab touch-none select-none overflow-hidden active:cursor-grabbing"
         style={{ perspective: PERSPECTIVE, backgroundColor: PARCHMENT, transition: "background-color 900ms ease" }}
         onPointerDown={(e) => {
-          // Map: drag, pinch or click. Drawer: clicks only (to switch kingdom). Otherwise: ignore.
           if (phaseRef.current !== "map" && phaseRef.current !== "drawer") return;
           e.currentTarget.setPointerCapture(e.pointerId);
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           if (pointers.current.size === 2) {
-            // Second finger: stop panning and start measuring the pinch.
             drag.current = null;
             const [a, b] = [...pointers.current.values()];
             pinchStart.current = Math.hypot(a.x - b.x, a.y - b.y);
@@ -782,8 +726,8 @@ export default function MapViewer() {
           if (!d || phaseRef.current !== "map") return;
           const { tilt, rot } = LEVELS[levelRef.current];
           const scale = LEVELS[levelRef.current].scale * (hover.current ? HOVER_ZOOM : 1);
-          // Screen delta -> map-plane delta: undo the tilt, undo the rotation, undo the scale.
           const dx = e.clientX - d.pointerX;
+          // Screen delta -> map-plane delta: undo the tilt, the turn and the zoom.
           const dy = (e.clientY - d.pointerY) / Math.cos(rad(tilt));
           const cos = Math.cos(rad(rot));
           const sin = Math.sin(rad(rot));
@@ -793,7 +737,7 @@ export default function MapViewer() {
         onPointerUp={endPointer}
         onPointerCancel={endPointer}
         onPointerLeave={() => {
-          movedSinceHover.current = true; // leaving the map always clears the hover
+          movedSinceHover.current = true;
           hoverNow(null);
         }}
       >
@@ -815,16 +759,11 @@ export default function MapViewer() {
             alt="Map of Protheka"
             loading="eager"
             fetchPriority="high"
-            // The map is as wide as the screen, or wider on tall screens (the layer is 179% of the height).
             sizes="(min-aspect-ratio: 1679/937) 100vw, 179vh"
             draggable={false}
             className="pointer-events-none h-auto w-full"
             style={{ visibility: terrainOk ? "hidden" : "visible" }}
           />
-          {/* Painterly relief: soft upper-left light and lower-right shadow on the drawn trees and mountains,
-              computed from the map's own ink (public/relief/relief.webp). The map art itself is untouched. */}
-          {/* Loaded once the page is idle: it's subtle shading, under the intro's clouds at first, so the first paint
-              doesn't wait for it. */}
           {idle && !terrainOk && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -835,12 +774,9 @@ export default function MapViewer() {
               className="pointer-events-none absolute inset-0 h-full w-full select-none"
             />
           )}
-          {/* Sea life sits under the sea tint, so its paper patches take the same colour as the water */}
           <SeaLife />
           {idle && <Sea />}
           <Kingdoms hovered={hovered} onHover={requestHover} />
-          {/* Night: the map dims to a moonlit blue-sepia. It sits just above the paper, sea and kingdom glows (2.5px)
-              and under the location markers, labels and clouds, so those stay luminous like lights in the dark. */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
@@ -851,7 +787,6 @@ export default function MapViewer() {
               transition: `opacity ${sweep ? 1600 : 900}ms ease`,
             }}
           />
-          {/* Dusk (or dawn) glow, pulsed by the day/night change (toggleTheme) */}
           <div
             ref={horizonRef}
             aria-hidden="true"
@@ -872,7 +807,6 @@ export default function MapViewer() {
           {idle && <Clouds part={part} />}
         </div>
 
-        {/* Haze toward the horizon on the tilted levels */}
         <div
           className="pointer-events-none absolute inset-0 transition-opacity duration-[800ms]"
           style={{
@@ -881,7 +815,6 @@ export default function MapViewer() {
           }}
         />
 
-        {/* The level control steps aside while the camera is flying or a kingdom is open */}
         <div
           style={{ opacity: phase === "map" ? 1 : 0, transition: "opacity 600ms ease" }}
           className={phase === "map" ? "" : "pointer-events-none"}
@@ -913,8 +846,7 @@ export default function MapViewer() {
         onToggleSound={music.toggle}
       />
 
-      {/* Outside the viewer: its perspective would trap these fixed, full-screen layers under the title */}
-      {/* Cinematic transition: a warm flare over the kingdom, then a fade through black */}
+      {/* Outside the viewer: its perspective would trap fixed overlays under the title */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-40"
@@ -950,12 +882,10 @@ function LevelControl({ level, onChange }: { level: Level; onChange: (level: Lev
       className="absolute right-6 top-1/2 z-20 flex h-[26vh] min-h-40 -translate-y-1/2 gap-2"
       style={{
         color: "var(--map-ink)",
-        // Two stacked glows so the ink stays readable over dense drawings (a dark halo at night).
         filter: "drop-shadow(0 0 2px var(--map-glow)) drop-shadow(0 0 7px var(--map-glow))",
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* Level labels, one per third of the rule, each with a small tick */}
       <div className="relative h-full w-10">
         {([1, 2, 3] as const).map((n) => (
           <button
@@ -984,7 +914,6 @@ function LevelControl({ level, onChange }: { level: Level; onChange: (level: Lev
         indicatorClassName="bg-current duration-[800ms]"
         indicatorStyle={{
           height: `${100 / 3}%`,
-          // % transforms use the marker's own height, so each step is exactly one third of the rule.
           transform: `translateY(${(level - 1) * 100}%)`,
         }}
       />

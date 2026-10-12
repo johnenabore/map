@@ -14,7 +14,6 @@ export const DIVE_MS = 2900;
 const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
 const DIVE_EASE = "cubic-bezier(0.45, 0, 0.2, 1)";
 
-// Cloud banks, nearest first: how much each expands as we dive through it, and when it starts.
 const BANKS = [
   { layer: LAYERS.introNear, seed: 5.3, grow: 3.4, delay: 200 },
   { layer: LAYERS.introMid, seed: 61.7, grow: 2.6, delay: 350 },
@@ -37,7 +36,6 @@ export default function Intro({ diving, onExplore }: { diving: boolean; onExplor
     return () => clearTimeout(t);
   }, []);
 
-  // Staggered entrance for the text; on the dive it all lifts away together.
   const rise = (delay: number): React.CSSProperties => ({
     opacity: shown && !diving ? 1 : 0,
     transform: shown && !diving ? "none" : diving ? "translateY(-18px)" : "translateY(14px)",
@@ -48,7 +46,6 @@ export default function Intro({ diving, onExplore }: { diving: boolean; onExplor
 
   return (
     <div role="dialog" aria-label="Welcome" className="fixed inset-0 z-45 overflow-hidden">
-      {/* Dark soft vignette: the view from high above */}
       <div
         aria-hidden="true"
         className="absolute inset-0"
@@ -59,7 +56,6 @@ export default function Intro({ diving, onExplore }: { diving: boolean; onExplor
         }}
       />
 
-      {/* Cloud banks: each expands from the centre and thins as we pass through it */}
       {cloudsOk &&
         BANKS.map((b) => (
           <div
@@ -76,14 +72,12 @@ export default function Intro({ diving, onExplore }: { diving: boolean; onExplor
                 : "none",
             }}
           >
-            {/* brighter, cooler white than the map's sepia clouds, like real clouds seen from above */}
             <div className="absolute inset-0" style={{ filter: "brightness(1.35) saturate(0.45) contrast(1.05)" }}>
               <ShaderLayer layer={b.layer} seed={b.seed} onFail={noClouds} />
             </div>
           </div>
         ))}
 
-      {/* Title block */}
       <div className="relative flex h-full flex-col items-center justify-center px-6 text-center text-white">
         <svg viewBox="0 0 24 24" className="mb-5 h-5 w-5 text-[#e8c98a]" aria-hidden="true" style={rise(0)}>
           <path d="M12 1 L13.6 10.4 L23 12 L13.6 13.6 L12 23 L10.4 13.6 L1 12 L10.4 10.4 Z" fill="currentColor" />

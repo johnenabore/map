@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Arrow, INK, linkClass, PAPER_BG } from "./parchment";
 
-const EDGE_FILL = "var(--paper-edge)"; // the paper's colour once the grain is on it, so the torn edge has no seam
+const EDGE_FILL = "var(--paper-edge)";
 const RIM = "var(--paper-rim)";
 export const OPEN_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 const CLOSE_EASE = "cubic-bezier(0.7, 0, 0.84, 0)";
 
-// A deckled paper edge from seeded multi-frequency noise: big irregular bites plus small fibres. Deterministic.
 function deckle(seed: number, depth: number, inset: number) {
   let s = seed;
   const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
@@ -59,8 +58,8 @@ export default function ParchmentDrawer({
   const [slidIn, setSlidIn] = useState(false);
   const backRef = useRef<HTMLButtonElement>(null);
 
-  // Paint the closed position first, then slide in (two frames, so the transition always runs).
   useEffect(() => {
+    // Paint the closed position first, then slide in, so the transition always runs.
     let r2 = 0;
     const r1 = requestAnimationFrame(() => {
       r2 = requestAnimationFrame(() => setSlidIn(true));
@@ -100,7 +99,6 @@ export default function ParchmentDrawer({
         filter: "drop-shadow(-6px 0 14px rgba(30, 22, 12, 0.32))",
       }}
     >
-      {/* Deckled edge facing the map: a lighter fibrous rim under the paper. Left on desktop, top on mobile. */}
       <svg
         viewBox="0 0 56 1000"
         preserveAspectRatio="none"
@@ -130,7 +128,6 @@ export default function ParchmentDrawer({
             aria-label="Back to map"
             className={`${linkClass} shrink-0`}
           >
-            {/* With tabs on a narrow phone there is only room for the arrow */}
             <span className={nav ? "max-[479px]:hidden" : "max-[380px]:hidden"}>BACK TO MAP</span>
             <Arrow dir="left" />
           </button>

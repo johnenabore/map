@@ -55,7 +55,6 @@ export default function PageDrawer({
 }
 
 function PageContent({ page, open, slidIn }: { page: SitePage; open: boolean; slidIn: boolean }) {
-  // The page on show lags `page` by a short fade, so switching tabs crossfades the content.
   const [shown, setShown] = useState(page);
   const [contentIn, setContentIn] = useState(false);
 

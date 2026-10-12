@@ -37,12 +37,10 @@ function KingdomContent({
   slidIn: boolean;
   onEnter: () => void;
 }) {
-  // The kingdom on show lags `id` by a short fade, so switching kingdoms crossfades the content.
   const [shownId, setShownId] = useState(id);
   const [contentIn, setContentIn] = useState(false);
 
   useEffect(() => {
-    // Closing, or switching to another kingdom: fade the content out first (and swap it once faded).
     if (!open || id !== shownId) {
       const out = window.setTimeout(() => setContentIn(false), 0);
       const swap = open ? window.setTimeout(() => setShownId(id), 260) : 0;
@@ -58,7 +56,6 @@ function KingdomContent({
 
   const kingdom = KINGDOMS.find((k) => k.id === shownId)!;
 
-  // Staggered entrance (delays in ms, counted from when the panel is well on its way); everything leaves together.
   const rise = (delay: number, extra?: React.CSSProperties): React.CSSProperties => ({
     opacity: contentIn ? 1 : 0,
     transform: contentIn ? "none" : "translateY(14px)",
@@ -68,7 +65,6 @@ function KingdomContent({
     ...extra,
   });
 
-  // Body: centred, starting about 30% down like the reference
   return (
     <div className="flex flex-1 flex-col items-center px-6 pb-12 pt-4 text-center min-[900px]:pt-[14vh]">
       <Picture key={shownId} id={shownId} centre={kingdom.centre} size={kingdom.size} style={rise(250)} />
@@ -85,7 +81,6 @@ function KingdomContent({
         </span>
       </h2>
 
-      {/* Thin divider with a small leaf-and-dot flourish, drawing outward from the centre */}
       <svg
         viewBox="0 0 170 12"
         aria-hidden="true"
@@ -137,7 +132,6 @@ function Picture({
   style: React.CSSProperties;
 }) {
   const [artLoaded, setArtLoaded] = useState(false);
-  // Frame the kingdom in a 16:9 window, kept inside the map.
   const ratio = 16 / 9;
   const fw = Math.min(MAP_W, Math.max(size[0] * 1.2, size[1] * 1.2 * ratio));
   const fh = fw / ratio;
