@@ -233,9 +233,10 @@ export default function MapViewer() {
     let shownX = h ? Math.min(maxX, Math.max(-maxX, offset.current.x + h.dx)) : offset.current.x;
     let shownY = h ? Math.min(maxY, Math.max(-maxY, offset.current.y + h.dy)) : offset.current.y;
     if (f) {
-      // Centre the kingdom, but never past the edge of the map.
-      shownX = Math.min(maxX, Math.max(-maxX, f.x));
-      shownY = Math.min(maxY, Math.max(-maxY, f.y));
+      // A clicked (or entered) kingdom is always framed where it was aimed, even near the map's edge: clamping here
+      // would stop the camera short and leave edge kingdoms hidden under the drawer.
+      shownX = f.x;
+      shownY = f.y;
     }
     // Only write what changed: these variables are inherited by everything in the map, so each write makes the
     // browser restyle it all. While dragging, only the transform below changes.
